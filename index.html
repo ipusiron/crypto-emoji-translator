@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';">
+  <meta name="referrer" content="no-referrer">
+  <title>Crypto Emoji Translator</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <meta name="description" content="Translate classical ciphers and encodings into colorful emoji sequences for fun and education."/>
+</head>
+<body>
+<header class="app-header">
+  <h1 data-i18n="app.title">Crypto Emoji Translator</h1>
+  <div class="sub" data-i18n="app.subtitle">古典暗号や符号化を絵文字で可視化する教育ツール</div>
+  <nav class="tabs" role="tablist" aria-label="Main tabs">
+    <button class="tab active" data-tab="transform" role="tab" aria-selected="true" data-i18n="tab.transform">変換</button>
+    <button class="tab" data-tab="visualizer" role="tab" aria-selected="false" data-i18n="tab.visualizer">対応表</button>
+    <button class="tab" data-tab="practice" role="tab" aria-selected="false" data-i18n="tab.practice">練習</button>
+    <button class="tab" data-tab="learn" role="tab" aria-selected="false" data-i18n="tab.learn">座学</button>
+    <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="tab.settings">設定</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Transform -->
+  <section id="tab-transform" class="tab-panel active" role="tabpanel" aria-labelledby="transform">
+    <div class="panel-grid">
+      <div class="card">
+        <h2 data-i18n="transform.mode_input">モード / 入力</h2>
+        <div class="row">
+          <label for="mode" data-i18n="transform.mode">モード</label>
+          <select id="mode">
+            <option value="caesar" data-i18n="transform.mode_caesar">シーザー暗号 → 絵文字</option>
+            <option value="vigenere" data-i18n="transform.mode_vigenere">ヴィジュネル暗号 → 絵文字</option>
+            <option value="morse" data-i18n="transform.mode_morse">モールス符号 ↔ 絵文字</option>
+            <option value="binary" data-i18n="transform.mode_binary">バイナリ ↔ 絵文字</option>
+            <option value="hex" data-i18n="transform.mode_hex">16進数 ↔ 絵文字</option>
+            <option value="custom" data-i18n="transform.mode_custom">カスタムマップ</option>
+          </select>
+        </div>
+
+        <div id="mode-options">
+          <!-- options inserted by JS -->
+        </div>
+
+        <div class="row emoji-set-row">
+          <label for="emoji-set" data-i18n="transform.emoji_set">絵文字セット</label>
+          <select id="emoji-set"></select>
+          <span id="emoji-preview" class="emoji-preview" aria-live="polite"></span>
+        </div>
+
+        <div class="row switches">
+          <label><input type="checkbox" id="keep-spaces" checked> <span data-i18n="transform.keep_spaces">スペース保持</span></label>
+          <label><input type="checkbox" id="keep-punct" checked> <span data-i18n="transform.keep_punct">記号保持</span></label>
+          <label><input type="checkbox" id="uppercase" checked> <span data-i18n="transform.uppercase">大文字化（A–Z）</span></label>
+        </div>
+
+        <div class="row">
+          <label for="input" data-i18n="transform.input">入力</label>
+          <textarea id="input" rows="6" placeholder="ここにテキスト（または絵文字列）を入力" data-i18n="transform.input_placeholder"></textarea>
+        </div>
+
+        <div class="row btns">
+          <button id="btn-encode" class="primary" data-i18n="transform.encode">Encode（→絵文字）</button>
+          <button id="btn-decode" class="secondary" data-i18n="transform.decode">Decode（←絵文字）</button>
+          <button id="btn-clear" class="secondary" data-i18n="transform.clear">クリア</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="output-header">
+          <h2 data-i18n="transform.output">出力</h2>
+          <button id="btn-copy-output" class="primary compact" data-i18n="transform.copy">📋 コピー</button>
+        </div>
+        <textarea id="output" rows="10" readonly aria-label="出力"></textarea>
+        <div class="note" id="hint-note" aria-live="polite"></div>
+
+        <details class="share-details">
+          <summary data-i18n="transform.share">🔗 URL共有</summary>
+          <div class="share-content">
+            <p class="share-help" data-i18n="transform.share_help">現在の設定を含むURLを生成して共有できます</p>
+            <div class="row">
+              <button id="btn-share" class="secondary" data-i18n="transform.share_generate">共有URL生成</button>
+            </div>
+            <div class="row">
+              <input id="share-url" type="text" readonly aria-label="共有URL" placeholder="共有URL生成ボタンを押すとURLが生成されます" data-i18n="transform.share_placeholder"/>
+              <button id="btn-copy-url" class="secondary compact" data-i18n="transform.copy">コピー</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Visualizer -->
+  <section id="tab-visualizer" class="tab-panel" role="tabpanel" aria-labelledby="visualizer">
+    <div class="card">
+      <h2 data-i18n="visualizer.mapping">文字→絵文字 対応表</h2>
+      <div id="mapping-grid" class="grid"></div>
+      <div class="row">
+        <label for="viz-input" data-i18n="visualizer.highlight_label">ハイライト対象の入力</label>
+        <input id="viz-input" type="text" placeholder="例: ATTACK AT DAWN" data-i18n="visualizer.highlight_placeholder"/>
+        <button id="viz-highlight" data-i18n="visualizer.highlight_btn">ハイライト</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="visualizer.morse">Morse 対応表</h2>
+      <div id="morse-table" class="morse-table"></div>
+    </div>
+  </section>
+
+  <!-- Practice -->
+  <section id="tab-practice" class="tab-panel" role="tabpanel" aria-labelledby="practice">
+    <div class="card">
+      <h2 data-i18n="practice.title">練習（クイズ）</h2>
+      <div class="row">
+        <label for="practice-direction" data-i18n="practice.direction">出題方向</label>
+        <select id="practice-direction">
+          <option value="text-to-emoji" data-i18n="practice.direction_te">Text → Emoji</option>
+          <option value="emoji-to-text" data-i18n="practice.direction_et">Emoji → Text</option>
+        </select>
+        <label for="practice-mode" data-i18n="practice.mode">モード</label>
+        <select id="practice-mode">
+          <option value="caesar" data-i18n="practice.mode_caesar">シーザー暗号</option>
+          <option value="vigenere" data-i18n="practice.mode_vigenere">ヴィジュネル暗号</option>
+          <option value="morse" data-i18n="practice.mode_morse">モールス符号</option>
+          <option value="binary" data-i18n="practice.mode_binary">バイナリ</option>
+          <option value="hex" data-i18n="practice.mode_hex">16進数</option>
+        </select>
+        <button id="practice-new" data-i18n="practice.new">新しい問題</button>
+      </div>
+      <div class="practice-q">
+        <div data-i18n="practice.question">問題：</div>
+        <div id="practice-question" class="mono"></div>
+      </div>
+      <div class="row">
+        <label for="practice-answer" data-i18n="practice.answer">解答</label>
+        <input id="practice-answer" type="text" />
+        <button id="practice-check" data-i18n="practice.check">判定</button>
+      </div>
+      <div id="practice-result" class="note" aria-live="polite"></div>
+      <div class="stats">
+        <div><span data-i18n="practice.stat_correct">正答数:</span> <span id="stat-correct">0</span></div>
+        <div><span data-i18n="practice.stat_total">出題数:</span> <span id="stat-total">0</span></div>
+        <div><span data-i18n="practice.stat_acc">正答率:</span> <span id="stat-acc">0%</span></div>
+        <div><span data-i18n="practice.stat_avg">平均時間:</span> <span id="stat-avg">-</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Learn -->
+  <section id="tab-learn" class="tab-panel" role="tabpanel" aria-labelledby="learn">
+    <div class="card">
+      <h2 data-i18n="learn.title">学びの要点</h2>
+
+      <details class="learn-section" open>
+        <summary data-i18n="learn.basics_title">🎯 基本原則</summary>
+        <div class="learn-content">
+          <ul>
+            <li data-i18n="learn.point1">絵文字化は<strong>表現の置換</strong>であり、暗号の強度を上げるものではありません。</li>
+            <li data-i18n="learn.point2">シーザー暗号とヴィジュネル暗号は<strong>頻度分布</strong>が残るため、見た目が派手でも統計的には分析できます。</li>
+            <li data-i18n="learn.point3">モールス符号、バイナリ変換、16進数変換は<strong>可逆的な符号化</strong>で、秘匿化ではありません。</li>
+            <li data-i18n="learn.point4">「見た目の安全」に惑わされず、手法の性質・限界を理解しましょう。</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="learn-section">
+        <summary data-i18n="learn.effects_title">✨ 絵文字変換の効能と限界</summary>
+        <div class="learn-content">
+          <h3 data-i18n="learn.effects_positive">効能</h3>
+          <ul>
+            <li data-i18n="learn.effect1"><strong>見た目によるカモフラージュ</strong>：絵文字列は、一見すると暗号文だと気づかれない可能性がある。</li>
+            <li data-i18n="learn.effect2"><strong>解読作業の手間増加</strong>：攻撃者は「絵文字をアルファベットに置換する」前処理が必要となる。</li>
+            <li data-i18n="learn.effect3"><strong>視認性の向上</strong>：モールス信号やバイナリ列のような単調な表現より学習効果が高い。</li>
+            <li data-i18n="learn.effect4"><strong>教育的効果</strong>：暗号を「遊び」として直感的に体験でき、学習者の関心を引きやすい。</li>
+          </ul>
+
+          <h3 data-i18n="learn.effects_negative">限界</h3>
+          <ul>
+            <li data-i18n="learn.limit1"><strong>人間にとっての識別困難性</strong>：絵文字は類似した形や色合いを区別するのが難しい。特に色覚異常のある人には識別困難がさらに増す。</li>
+            <li data-i18n="learn.limit2"><strong>互換性・可搬性の制約</strong>：絵文字は環境やフォントに依存し、端末によって見た目が異なる。</li>
+            <li data-i18n="learn.limit3"><strong>冗長性の増加</strong>：UTF-8で絵文字は数バイトを占めるため、データサイズが大きくなる。</li>
+            <li data-i18n="learn.limit4"><strong>暗号強度は不変</strong>：コンピューターによる解読困難度は変わらない。</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="learn-section">
+        <summary data-i18n="learn.substitution_title">🧩 置換表の考察</summary>
+        <div class="learn-content">
+          <p data-i18n="learn.substitution_intro">シーザー暗号を絵文字に拡張すると、実際には<strong>二段階の置換表</strong>を用いています：</p>
+          <ol>
+            <li data-i18n="learn.substitution_step1"><strong>シーザー暗号の置換表</strong>：アルファベットをシフトして別のアルファベットに対応づける。</li>
+            <li data-i18n="learn.substitution_step2"><strong>アルファベットと絵文字の置換表</strong>：シフト後のアルファベットを、対応する絵文字に割り当てる。</li>
+          </ol>
+          <p data-i18n="learn.substitution_conclusion">これを組み合わせると「暗号文の文字体系をアルファベットから絵文字に置き換えたシーザー暗号」になり、暗号強度自体は従来のシーザー暗号と変わらず、<strong>見た目が多様化して難しく見えるだけ</strong>です。</p>
+        </div>
+      </details>
+
+      <details class="learn-section">
+        <summary data-i18n="learn.educational_title">🎓 教育的な有効性</summary>
+        <div class="learn-content">
+          <ul>
+            <li data-i18n="learn.edu1"><strong>視覚的直感</strong>：文字→絵文字の対応表を見ながら暗号処理を追える。</li>
+            <li data-i18n="learn.edu2"><strong>頻度解析への導入</strong>：見た目が派手でも統計パターンは変わらないことを体感。</li>
+            <li data-i18n="learn.edu3"><strong>可逆性の理解</strong>：符号化と暗号化の違いを学べる。</li>
+            <li data-i18n="learn.edu4"><strong>安全性の限界を理解</strong>：絵文字化は暗号の強度を上げるわけではなく、単なる表現変換であることを学べる。</li>
+            <li data-i18n="learn.edu5"><strong>ソーシャル面の啓発</strong>：「見た目が安全そう」に惑わされない目を養う。</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="learn-section">
+        <summary data-i18n="learn.accessibility_title">👁️ 色覚とアクセシビリティ</summary>
+        <div class="learn-content">
+          <p data-i18n="learn.colorblind_intro">本ツールは絵文字の色合いや形状を学習用途で利用しますが、<strong>色覚異常のある方は色での識別が難しい場合があります</strong>。</p>
+          <ul>
+            <li data-i18n="learn.colorblind1">教育目的で色を用いる場合は、必ず<strong>形・ラベル・枠線などの代替手段</strong>を組み合わせることが重要です。</li>
+            <li data-i18n="learn.colorblind2">カスタムマップ作成時は<strong>色以外の特徴（例：動物 vs 果物、アイコンの形状）</strong>を併用することを推奨します。</li>
+            <li data-i18n="learn.colorblind3">これは暗号強度の問題ではなく、<strong>UI設計やヒューマンファクターのリスク</strong>であり、攻撃者に悪用され得る点も教育的に考察できます。</li>
+          </ul>
+          <p class="note warning" data-i18n="learn.colorblind_example">例：赤＝危険／緑＝安全 といった色分けは、色覚異常者には判別困難であり、攻撃者が偽装することで誤認を誘発できる。</p>
+        </div>
+      </details>
+
+      <details class="learn-section">
+        <summary data-i18n="learn.privacy_title">🔒 プライバシーとセキュリティ</summary>
+        <div class="learn-content">
+          <ul>
+            <li data-i18n="learn.privacy1"><strong>完全クライアントサイド</strong>：入力はすべてブラウザー内で処理。サーバー送信しません。</li>
+            <li data-i18n="learn.privacy2"><strong>ローカルストレージ</strong>：カスタムマップは localStorage に保存（端末内のみ）。</li>
+            <li data-i18n="learn.privacy3"><strong>共有URLの注意</strong>：<code>in</code> パラメーターを含めると第三者に入力が見えるため注意。</li>
+            <li data-i18n="learn.privacy4"><strong>教育目的の限定</strong>：これらは古典暗号であり、既知の弱点があります。実際のセキュリティ用途には使用しないでください。</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section id="tab-settings" class="tab-panel" role="tabpanel" aria-labelledby="settings">
+    <div class="card">
+      <h2 data-i18n="settings.custommap">Custom Map エディター</h2>
+      <p data-i18n="settings.custommap_desc">A–Z に対して絵文字を重複なしで配置してください。ドラッグ＆ドロップ、または JSON で入出力ができます。</p>
+      <div class="custommap">
+        <div class="alphabet">
+          <h3 data-i18n="settings.alphabet">Alphabet</h3>
+          <div id="alpha-slots" class="slots"></div>
+        </div>
+        <div class="emoji-pool">
+          <h3 data-i18n="settings.emoji_pool">絵文字プール</h3>
+          <div id="emoji-pool" class="pool"></div>
+        </div>
+      </div>
+      <div class="row">
+        <button id="custom-save" class="primary" data-i18n="settings.save">保存（localStorage）</button>
+        <button id="custom-reset" class="danger" data-i18n="settings.reset">リセット</button>
+      </div>
+      <div class="row">
+        <label for="custom-json" data-i18n="settings.json">JSON</label>
+        <textarea id="custom-json" rows="4" placeholder='{"A":"🍎","B":"🍐",...}' data-i18n="settings.json_placeholder"></textarea>
+      </div>
+      <div class="row btns">
+        <button id="custom-export" class="secondary" data-i18n="settings.export">エクスポート</button>
+        <button id="custom-import" class="primary" data-i18n="settings.import">インポート</button>
+      </div>
+      <div id="custom-status" class="note" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="settings.theme">テーマ設定</h2>
+      <div class="row switches">
+        <label><input type="radio" name="theme" id="theme-default" checked> <span data-i18n="settings.theme_default">デフォルト（ダークブルー）</span></label>
+        <label><input type="radio" name="theme" id="dark-mode"> <span data-i18n="settings.theme_dark">ダークモード（純黒）</span></label>
+        <label><input type="radio" name="theme" id="light-mode"> <span data-i18n="settings.theme_light">ライトモード</span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="settings.language">言語設定</h2>
+      <div class="row switches">
+        <label><input type="radio" name="language" id="lang-ja" checked> <span data-i18n="settings.lang_ja">日本語</span></label>
+        <label><input type="radio" name="language" id="lang-en"> <span data-i18n="settings.lang_en">English</span></label>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="footer">
+    <span data-i18n="footer.text">🔗 GitHubリポジトリはこちら（</span><a href="https://github.com/ipusiron/crypto-emoji-translator" target="_blank" rel="noopener" data-i18n="footer.link">ipusiron/crypto-emoji-translator</a><span data-i18n="footer.close">）</span>
+  </div>
+</footer>
+
+<script src="js/i18n.js"></script>
+<script src="js/modes/caesar.js"></script>
+<script src="js/modes/vigenere.js"></script>
+<script src="js/modes/morse.js"></script>
+<script src="js/modes/binaryhex.js"></script>
+<script src="js/custommap.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

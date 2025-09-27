@@ -1,0 +1,12 @@
+# Security headers for GitHub Pages
+# Note: GitHub Pages doesn't support custom headers directly
+# This file is for documentation purposes
+# Use a CDN like Cloudflare or Netlify for actual implementation
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
