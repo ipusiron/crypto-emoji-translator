@@ -1,11 +1,42 @@
 <!--
 ---
-title: Crypto Emoji Translator
-category: playful-cryptography
+id: day076
+slug: crypto-emoji-translator
+
+title: "Crypto Emoji Translator"
+
+subtitle_ja: "古典暗号や符号化を絵文字で可視化する教育ツール"
+subtitle_en: "Educational tool to visualize classical ciphers with emojis"
+
+description_ja: "シーザー暗号やヴィジュネル暗号、モールス符号、バイナリ/16進数をカラフルな絵文字列に変換。見た目は派手でも暗号の本質（頻度分布や可逆性）は変わらないことを体験的に理解できる教育向けWebツール。"
+description_en: "Convert Caesar cipher, Vigenère cipher, Morse code, and binary/hex encodings into colorful emoji sequences. An educational web tool demonstrating that visual complexity doesn't improve cryptographic strength - frequency distributions and reversibility remain unchanged."
+
+category_ja:
+  - 古典暗号
+  - 換字式暗号
+  - 符号化
+category_en:
+  - Classical Cryptography
+  - Subsutition Cipher
+  - Encoding
+
 difficulty: 1
-description: Translate classical ciphers and encodings into colorful emoji sequences for fun and education.
-tags: [emoji, cipher, caesar, vigenere, morse, binary, education]
-demo: https://ipusiron.github.io/crypto-emoji-translator/
+
+tags:
+  - emoji
+  - cipher
+  - caesar
+  - vigenere
+  - morse
+  - binary
+  - hex
+  - education
+  - client-side
+
+repo_url: "https://github.com/ipusiron/crypto-emoji-translator"
+demo_url: "https://ipusiron.github.io/crypto-emoji-translator/"
+
+hub: true
 ---
 -->
 

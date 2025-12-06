@@ -16,12 +16,26 @@ This is a static web application with no build process:
 # Open directly in browser
 start index.html
 
-# Or serve with a local server
+# Or serve with a local server (for testing fetch requests)
 python -m http.server 8000
 # Then open http://localhost:8000
+
+# Alternative: Node-based server
+npx http-server .
 ```
 
 No installation, build, or package management required.
+
+## Testing
+
+No automated tests. Manually verify after changes:
+- Each cipher mode (Caesar, Vigenère, Morse, Binary, Hex, Custom)
+- Custom map save/load cycle and JSON import/export
+- Practice mode counters and timing
+- Theme toggles (default/dark/light)
+- Language switching (Japanese/English)
+
+Check browser devtools for console warnings and failed network requests.
 
 ## Architecture
 
@@ -118,9 +132,19 @@ Edit `data/emoji_sets.json`:
 5. Update URL parameter handling in `updateShareURL()` and `applyParams()`
 
 ### Modifying UI
-- All UI strings are Japanese; English toggle (`i18n-en`) is placeholder for future
+- Bilingual support (Japanese/English) via `js/i18n.js` - update both language entries
+- Use `data-i18n` attribute for translatable elements
 - Accessibility: Use `aria-label`, `aria-live`, `role` attributes
 - Dark mode toggles document background color only
+
+## Coding Style
+
+- 2-space indentation, `const`/`let`, semicolons
+- camelCase for functions/variables, PascalCase for module objects (Caesar, Vigenere, Morse, BinaryHex, CustomMap)
+- Use `EL(id)` helper for DOM lookups
+- Template literals for dynamic UI text
+- Keep UTF-8 emoji literals; never replace with ASCII
+- Extend `css/style.css` selectors rather than inline styles
 
 ## Privacy & Security Notes
 
