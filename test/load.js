@@ -24,6 +24,7 @@ export function modules() {
   load('js/modes/morse.js');
   load('js/modes/binaryhex.js');
   load('js/modes/bytes.js');
+  load('js/modes/cryptanalysis.js');
   return globalThis;
 }
 

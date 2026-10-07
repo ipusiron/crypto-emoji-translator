@@ -596,6 +596,186 @@ function updateShareURL(){
   EL('share-url').value = url;
 }
 
+/* ============================================
+ * Crack Tab - 鍵を知らずに読む（解読演習）
+ * ============================================
+ *
+ * 座学で「絵文字にしても頻度分布は残る」と説いていることを、
+ * 読み手が自分の手で確かめるための画面。計算は js/modes/cryptanalysis.js にある。
+ */
+
+// 絵文字 → A–Z の割り当て。利用者が手で動かす
+let crackAssignment = Object.create(null);
+
+/** 解読タブの入力 */
+function crackCipher(){
+  return EL('crack-input').value || '';
+}
+
+/** 頻度の一覧を描く（棒の長さで多さを示す） */
+function renderCrackFrequency(){
+  const box = EL('crack-freq');
+  box.replaceChildren();
+  const { ranked, total } = Cryptanalysis.frequency(crackCipher());
+  if(!total){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('crack.need_input');
+    box.append(p);
+    return;
+  }
+  const max = ranked[0].count;
+  for(const r of ranked){
+    const row = document.createElement('div');
+    row.className = 'freq-row';
+
+    const sym = document.createElement('span');
+    sym.className = 'freq-symbol';
+    sym.textContent = r.symbol;
+    row.append(sym);
+
+    const bar = document.createElement('span');
+    bar.className = 'freq-bar';
+    bar.style.width = `${Math.round((r.count / max) * 100)}%`;
+    const barWrap = document.createElement('span');
+    barWrap.className = 'freq-bar-wrap';
+    barWrap.append(bar);
+    row.append(barWrap);
+
+    const num = document.createElement('span');
+    num.className = 'freq-count';
+    num.textContent = t('crack.freq_count', { count: r.count, percent: r.percent.toFixed(1) });
+    row.append(num);
+
+    // 割り当て欄（A–Z と「未割り当て」）
+    const sel = document.createElement('select');
+    sel.className = 'freq-assign';
+    sel.setAttribute('aria-label', t('crack.assign_label', { symbol: r.symbol }));
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '—';
+    sel.append(none);
+    for(const L of Cryptanalysis.LETTERS){
+      const o = document.createElement('option');
+      o.value = L;
+      o.textContent = L;
+      sel.append(o);
+    }
+    sel.value = crackAssignment[r.symbol] || '';
+    sel.addEventListener('change', ()=>{
+      if(sel.value) crackAssignment[r.symbol] = sel.value;
+      else delete crackAssignment[r.symbol];
+      renderCrackPlain();
+      markCrackConflicts();
+    });
+    row.append(sel);
+    box.append(row);
+  }
+  markCrackConflicts();
+}
+
+/** 同じ文字に2つ以上の絵文字が当たっていたら印をつける */
+function markCrackConflicts(){
+  const { duplicated } = Cryptanalysis.validate(crackAssignment);
+  const warn = EL('crack-warn');
+  for(const sel of document.querySelectorAll('#crack-freq .freq-assign')){
+    sel.classList.toggle('conflict', !!sel.value && duplicated.includes(sel.value));
+  }
+  if(duplicated.length){
+    warn.textContent = t('crack.conflict', { letters: duplicated.join(' ') });
+    warn.hidden = false;
+  }else{
+    warn.hidden = true;
+  }
+}
+
+/** いまの割り当てで読める範囲を出す */
+function renderCrackPlain(){
+  const cipher = crackCipher();
+  const { text, solved, total } = Cryptanalysis.apply(cipher, crackAssignment);
+  EL('crack-plain').textContent = text;
+  const lk = Cryptanalysis.likelihood(cipher, crackAssignment);
+  EL('crack-stats').textContent = total
+    ? t('crack.stats', { solved, total, score: (lk.score * 100).toFixed(0) })
+    : '';
+}
+
+/** クリブを当てはめられる位置を探して並べる */
+function renderCrackCrib(){
+  const box = EL('crack-crib-result');
+  box.replaceChildren();
+  const cipher = crackCipher();
+  const crib = EL('crack-crib').value || '';
+  const hits = Cryptanalysis.cribPositions(cipher, crib);
+  if(!hits.length){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('crack.crib_none');
+    box.append(p);
+    return;
+  }
+  const head = document.createElement('p');
+  head.className = 'muted';
+  head.textContent = t('crack.crib_found', { count: hits.length });
+  box.append(head);
+
+  const symbols = Graphemes.split(cipher).filter((g)=>g.trim()!=='');
+  for(const hit of hits.slice(0, 30)){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'secondary crib-hit';
+    const run = symbols.slice(hit.index, hit.index + Object.keys(hit.assignment).length + 3).join('');
+    btn.textContent = t('crack.crib_apply', { index: hit.index + 1, run: run.slice(0, 12) });
+    btn.addEventListener('click', ()=>{
+      Object.assign(crackAssignment, hit.assignment);
+      renderCrackFrequency();
+      renderCrackPlain();
+    });
+    box.append(btn);
+  }
+}
+
+/** 解読タブのボタンをつなぐ */
+function initCrackTab(){
+  if(!document.getElementById('crack-input')) return;
+
+  EL('crack-analyze').addEventListener('click', ()=>{
+    renderCrackFrequency();
+    renderCrackPlain();
+  });
+
+  EL('crack-guess').addEventListener('click', ()=>{
+    crackAssignment = Cryptanalysis.guessByFrequency(crackCipher());
+    renderCrackFrequency();
+    renderCrackPlain();
+    showToast(t('toast.crack_guessed'));
+  });
+
+  EL('crack-clear').addEventListener('click', ()=>{
+    crackAssignment = Object.create(null);
+    renderCrackFrequency();
+    renderCrackPlain();
+  });
+
+  EL('crack-sample').addEventListener('click', ()=>{
+    // 例文は、いま選ばれている絵文字セットでシーザー暗号にしたもの（鍵は見せない）
+    rebuildMappingFromSet();
+    const shift = 7;
+    const sample = t('crack.sample_text');
+    EL('crack-input').value = Caesar.encodeToEmoji(sample.toUpperCase().replace(/[^A-Z ]/g,''), shift, State.mapping26);
+    crackAssignment = Object.create(null);
+    renderCrackFrequency();
+    renderCrackPlain();
+    EL('crack-crib').value = t('crack.sample_crib');
+    renderCrackCrib();
+  });
+
+  EL('crack-find').addEventListener('click', renderCrackCrib);
+  EL('crack-input').addEventListener('input', ()=>{
+    crackAssignment = Object.create(null);
+  });
+}
+
 /**
  * URLパラメーターから設定を復元
  */
@@ -732,6 +912,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     State.currentLang = 'en';
     applyTranslations();
   }
+
+  // 解読タブ
+  initCrackTab();
 
   // カスタムマップ初期化
   CustomMap.init();

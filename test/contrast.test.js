@@ -117,7 +117,7 @@ test('ヘルプは button で、焦点を当てても読める', () => {
 
 test('タブの ARIA の参照が通っていて、矢印キーで動く', () => {
   const tabs = [...html.matchAll(/<button class="tab[^"]*" id="tab-btn-(\w+)" data-tab="(\w+)" role="tab" aria-controls="tab-(\w+)"/g)];
-  assert.equal(tabs.length, 5, `タブが ${tabs.length} 個`);
+  assert.equal(tabs.length, 6, `タブが ${tabs.length} 個`);
   for (const [, btnKey, dataKey, panelKey] of tabs) {
     assert.equal(btnKey, dataKey);
     assert.equal(btnKey, panelKey);

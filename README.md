@@ -373,7 +373,8 @@ crypto-emoji-translator/
 │       ├── vigenere.js     # ヴィジュネル暗号
 │       ├── morse.js        # モールス符号
 │       ├── binaryhex.js    # バイナリ・16進数
-│       └── bytes.js        # バイト単位（Base100。UTF-8のバイト1つ＝絵文字1つ）
+│       ├── bytes.js        # バイト単位（Base100。UTF-8のバイト1つ＝絵文字1つ）
+│       └── cryptanalysis.js # 解読演習（頻度の集計・クリブの当てはめ・それらしさ）
 ├── test/                   # テスト（node --test で実行する）
 │   ├── load.js             # 画面と同じスクリプトの読み込みと、対応表の組み立て
 │   ├── core.test.js        # 計算部（グラフェム分割・各モードの往復・符号表・境界）

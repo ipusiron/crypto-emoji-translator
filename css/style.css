@@ -678,3 +678,83 @@ input[type="checkbox"], input[type="radio"]{
   min-height:24px;
   min-width:24px;
 }
+
+/* ============================================
+ * 解読タブ
+ * ============================================ */
+.freq-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:12px;
+}
+.freq-row{
+  display:grid;
+  grid-template-columns:2.2em 1fr 7.5em 4.5em;
+  align-items:center;
+  gap:8px;
+}
+.freq-symbol{
+  font-size:22px;
+  text-align:center;
+}
+.freq-bar-wrap{
+  display:block;
+  height:12px;
+  background:var(--fg);
+  border:1px solid var(--border);
+  border-radius:6px;
+  overflow:hidden;
+}
+.freq-bar{
+  display:block;
+  height:100%;
+  background:var(--accent);
+}
+.freq-count{
+  font-size:13px;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.freq-assign{
+  min-height:44px;
+}
+.freq-assign.conflict{
+  border-color:var(--error);
+  outline:2px solid var(--error);
+}
+.crib-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
+}
+.crib-list .muted{
+  flex-basis:100%;
+  margin:0;
+}
+.crib-hit{
+  font-size:14px;
+}
+#crack-plain{
+  margin-top:8px;
+  min-height:4em;
+  padding:12px;
+  background:var(--fg);
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow-wrap:anywhere;
+  line-height:1.9;
+}
+
+@media (max-width:640px){
+  .freq-row{
+    grid-template-columns:2.2em 1fr 4.5em;
+    grid-template-areas:'sym bar assign' 'sym count assign';
+    row-gap:2px;
+  }
+  .freq-symbol{grid-area:sym}
+  .freq-bar-wrap{grid-area:bar}
+  .freq-count{grid-area:count}
+  .freq-assign{grid-area:assign}
+}

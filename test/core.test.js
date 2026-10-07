@@ -408,3 +408,132 @@ test('UTF-8として読めないバイト列は、読める範囲を出して知
   assert.equal(r.valid, false);
   assert.equal(r.bytes, 1);
 });
+
+// ---- 解読演習
+
+test('頻度を数えて、多い順に並べる', () => {
+  const map = mappingOf('foods');
+  const cipher = Caesar.encodeToEmoji('AAAB', 0, map);
+  const f = Cryptanalysis.frequency(cipher);
+  assert.equal(f.total, 4);
+  assert.equal(f.ranked.length, 2);
+  assert.equal(f.ranked[0].symbol, map.A);
+  assert.equal(f.ranked[0].count, 3);
+  assert.equal(f.ranked[0].percent, 75);
+  // 空白は数えない
+  assert.equal(Cryptanalysis.frequency(`${map.A} ${map.B}`).total, 2);
+});
+
+test('絵文字にしても頻度の形は平文のまま', () => {
+  // 座学タブの主張の裏づけ
+  const map = mappingOf('weather');
+  const plain = 'THEQUICKBROWNFOXJUMPSOVERTHELAZYDOG';
+  const cipher = Caesar.encodeToEmoji(plain, 11, map);
+  const shape = Cryptanalysis.compareShape(plain, cipher);
+  assert.ok(shape.same, `形が違う ${shape.plain} / ${shape.cipher}`);
+});
+
+test('割り当てを当てはめて、未割り当てを伏せ字にする', () => {
+  const map = mappingOf('foods');
+  const cipher = Caesar.encodeToEmoji('ABC', 0, map);
+  const r = Cryptanalysis.apply(cipher, { [map.A]: 'X' });
+  assert.equal(r.text, 'X__');
+  assert.equal(r.solved, 1);
+  assert.equal(r.total, 3);
+  // 空白はそのまま残す
+  assert.equal(Cryptanalysis.apply(`${map.A} ${map.B}`, { [map.A]: 'X' }).text, 'X _');
+});
+
+test('正しい割り当てを当てはめると平文に戻る', () => {
+  const map = mappingOf('animals');
+  const plain = 'ATTACKATDAWN';
+  const shift = 5;
+  const cipher = Caesar.encodeToEmoji(plain, shift, map);
+  const correct = {};
+  for (const L of Cryptanalysis.LETTERS) {
+    const shifted = String.fromCharCode(65 + ((L.charCodeAt(0) - 65 + shift) % 26));
+    correct[map[shifted]] = L;
+  }
+  const r = Cryptanalysis.apply(cipher, correct);
+  assert.equal(r.text, plain);
+  assert.equal(r.solved, r.total);
+});
+
+test('クリブは、1対1が崩れない場所にだけ当てはまる', () => {
+  const map = mappingOf('foods');
+  // 平文 THAT の暗号文（シフト0）。クリブ THAT は T が2回出るので位置が絞られる
+  const cipher = Caesar.encodeToEmoji('THATTHAT', 0, map);
+  const hits = Cryptanalysis.cribPositions(cipher, 'THAT');
+  assert.deepEqual(hits.map((h) => h.index), [0, 4]);
+  assert.equal(hits[0].assignment[map.T], 'T');
+  assert.equal(hits[0].assignment[map.H], 'H');
+  // 同じ絵文字に別の文字を当てる形は候補にしない
+  assert.equal(Cryptanalysis.cribPositions(Caesar.encodeToEmoji('AA', 0, map), 'AB').length, 0);
+  // 別の絵文字を同じ文字にする形も候補にしない
+  assert.equal(Cryptanalysis.cribPositions(Caesar.encodeToEmoji('AB', 0, map), 'AA').length, 0);
+});
+
+test('クリブが空なら候補を返さない', () => {
+  const map = mappingOf('foods');
+  assert.deepEqual(Cryptanalysis.cribPositions(Caesar.encodeToEmoji('ABC', 0, map), ''), []);
+  assert.deepEqual(Cryptanalysis.cribPositions(Caesar.encodeToEmoji('ABC', 0, map), '123'), []);
+});
+
+test('それらしさは、正しい割り当てのほうが高くなる', () => {
+  const map = mappingOf('foods');
+  const plain = 'THEQUICKBROWNFOXJUMPSOVERTHELAZYDOGANDTHESTORYENDSHERE';
+  const shift = 7;
+  const cipher = Caesar.encodeToEmoji(plain, shift, map);
+  const correct = {};
+  for (const L of Cryptanalysis.LETTERS) {
+    const shifted = String.fromCharCode(65 + ((L.charCodeAt(0) - 65 + shift) % 26));
+    correct[map[shifted]] = L;
+  }
+  const good = Cryptanalysis.likelihood(cipher, correct).score;
+  const draft = Cryptanalysis.likelihood(cipher, Cryptanalysis.guessByFrequency(cipher)).score;
+  assert.ok(good > draft, `正解 ${good} が下書き ${draft} を上回らない`);
+  assert.equal(Cryptanalysis.likelihood(cipher, {}).score, 0, '空の割り当てが0でない');
+});
+
+test('頻度順の下書きは、多い絵文字から E T A の順に当てる', () => {
+  const map = mappingOf('foods');
+  const cipher = Caesar.encodeToEmoji('AAABBC', 0, map);
+  const guess = Cryptanalysis.guessByFrequency(cipher);
+  assert.equal(guess[map.A], 'E', 'いちばん多い絵文字が E でない');
+  assert.equal(guess[map.B], 'T');
+  assert.equal(guess[map.C], 'A');
+});
+
+test('同じ文字に2つ以上の絵文字を当てたら矛盾として返す', () => {
+  assert.deepEqual(Cryptanalysis.validate({ a: 'E', b: 'T' }), { ok: true, duplicated: [] });
+  const bad = Cryptanalysis.validate({ a: 'E', b: 'E', c: 'T', d: 'T' });
+  assert.equal(bad.ok, false);
+  assert.deepEqual(bad.duplicated, ['E', 'T']);
+  // 未割り当て（空文字）は数えない
+  assert.deepEqual(Cryptanalysis.validate({ a: '', b: '' }), { ok: true, duplicated: [] });
+});
+
+test('英語の文字頻度は E T A O I N の順', () => {
+  // 出典: Lewand, Cryptological Mathematics (2000)
+  const order = Object.entries(Cryptanalysis.ENGLISH_FREQ)
+    .sort((a, b) => b[1] - a[1]).map(([l]) => l);
+  assert.deepEqual(order.slice(0, 6), ['E', 'T', 'A', 'O', 'I']. concat('N'));
+  assert.equal(Object.keys(Cryptanalysis.ENGLISH_FREQ).length, 26);
+  const sum = Object.values(Cryptanalysis.ENGLISH_FREQ).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(sum - 100) < 0.5, `合計が ${sum}`);
+});
+
+test('それらしさは、伏せ字や空白をまたいだ組を数えない', () => {
+  const map = mappingOf('foods');
+  // T _ H _ E のように離れていると、詰めれば THE に見えてしまうが、隣り合っていない
+  const cipher = Caesar.encodeToEmoji('TXHXE', 0, map);
+  const partial = { [map.T]: 'T', [map.H]: 'H', [map.E]: 'E' };
+  const r = Cryptanalysis.likelihood(cipher, partial);
+  assert.equal(r.hits, 0, '伏せ字をまたいで数えている');
+  assert.equal(r.pairs, 0, '伏せ字をまたいだ組を数えている');
+  // 隣り合っていればちゃんと数える
+  const together = Caesar.encodeToEmoji('THE', 0, map);
+  const r2 = Cryptanalysis.likelihood(together, partial);
+  assert.equal(r2.pairs, 2);
+  assert.equal(r2.hits, 2, 'TH と HE を数えていない');
+});
