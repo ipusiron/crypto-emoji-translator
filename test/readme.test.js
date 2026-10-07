@@ -127,3 +127,59 @@ test('表記をそろえる', () => {
     }
   }
 });
+
+// ---- 英語版のREADME（要約にせず、同じ節をそろえる）
+const readmeEn = read('README.en.md');
+
+test('日本語版と英語版で、見出しの数・順・階層がそろっている', () => {
+  const levels = (text) => [...text.matchAll(/^(#{1,3}) /gm)].map((m) => m[1].length);
+  const ja = levels(readme);
+  const en = levels(readmeEn);
+  assert.ok(ja.length >= 25, `見出しが ${ja.length} 個しかない`);
+  assert.deepEqual(en, ja, `見出しの数か階層が違う（ja ${ja.length} / en ${en.length}）`);
+});
+
+test('英語版に日本語の本文が残っていない', () => {
+  const body = readmeEn
+    .split('\n')
+    // 日本語そのものを示す行と、相互リンクの行は対象から外す
+    .filter((line) => !line.includes('README.md') && !line.includes('日本語')
+      && !line.includes('別表第一号'))
+    .join('\n');
+  const hits = [...body.matchAll(/[぀-ヿ一-鿿]+/g)].map((m) => m[0]);
+  assert.deepEqual(hits, [], `日本語が残っている: ${hits.slice(0, 5).join(' / ')}`);
+});
+
+test('両方のREADMEが互いにリンクしている', () => {
+  assert.match(readme, /^\[English\]\(README\.en\.md\) · 日本語$/m);
+  assert.match(readmeEn, /^English · \[日本語\]\(README\.md\)$/m);
+  // YAML メタデータは日本語版だけに置く（hackinglab.online が読むのは README.md）
+  assert.doesNotMatch(readmeEn, /^id: day076$/m);
+});
+
+test('英語版の画像がすべて実在し、英語の画面である', () => {
+  const imgs = [...readmeEn.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]);
+  const local = imgs.filter((u) => !u.startsWith('http'));
+  assert.equal(local.length, 5, `画像の参照が ${local.length} 件`);
+  for (const rel of local) {
+    assert.ok(rel.startsWith('assets/en/'), `英語版は英語の画面を使う: ${rel}`);
+    assert.ok(fs.existsSync(new URL(rel, ROOT)), `${rel} がない`);
+  }
+});
+
+test('日本語版の画像もすべて実在する', () => {
+  const imgs = [...readme.matchAll(/!\[[^\]]*\]\((assets\/[^)]+)\)/g)].map((m) => m[1]);
+  assert.equal(imgs.length, 5, `画像の参照が ${imgs.length} 件`);
+  for (const rel of imgs) {
+    assert.ok(!rel.startsWith('assets/en/'), `日本語版は日本語の画面を使う: ${rel}`);
+    assert.ok(fs.existsSync(new URL(rel, ROOT)), `${rel} がない`);
+  }
+});
+
+test('英語版の絵文字セットの表も実装と合っている', () => {
+  for (const set of EmojiSets) {
+    const row = readmeEn.split('\n').find((l) => l.includes(`**${set.name}**`));
+    assert.ok(row, `${set.name} の行がない`);
+    assert.ok(row.includes(set.items.slice(0, 12).join('')), `${set.name} の先頭12個が合っていない`);
+  }
+});

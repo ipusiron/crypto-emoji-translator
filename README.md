@@ -70,8 +70,20 @@ hub: true
 
 ## 📸 スクリーンショット
 
->![絵文字のシーザー暗号文](assets/screenshot.png)
->*絵文字のシーザー暗号文*
+>![シーザー暗号で絵文字にしたところ](assets/screenshot.png)
+>*変換タブ。シーザー暗号（シフト3）で「HELLO WORLD」を絵文字にしたところ*
+
+>![文字と絵文字の対応表](assets/screenshot2.png)
+>*対応表タブ。A–Zと絵文字の対応と、入力した文字のハイライト。モールス対応表も⚫⚪で示す*
+
+>![練習タブのクイズ](assets/screenshot3.png)
+>*練習タブ。出題方向を切り替えてクイズを解く。正答率と平均時間が残る*
+
+>![絵文字変換の効能と限界](assets/screenshot4.png)
+>*座学タブ。絵文字にしても強度は上がらないこと、色覚への配慮を解説する*
+
+>![カスタムマップのエディター](assets/screenshot5.png)
+>*設定タブ。A–Zに好きな絵文字を割り当て、JSONで入出力できる*
 
 ---
 
@@ -236,9 +248,6 @@ https://ipusiron.github.io/crypto-emoji-translator/?mode=caesar&set=foods&shift=
 
 ---
 
-
----
-
 ## ♿️ アクセシビリティ
 
 - 対応表の絵文字に **aria-label（元の文字）** を付けている
@@ -247,9 +256,6 @@ https://ipusiron.github.io/crypto-emoji-translator/?mode=caesar&set=foods&shift=
 - タブは矢印キー・Home・End で移動できる
 - ヘルプのアイコンは `button` なので、焦点を当てても説明が読める
 - **カスタムマップの割り当てはドラッグ＆ドロップのみで、キーボードでは操作できない。**JSONの入出力が代わりになる
-
----
-
 
 ---
 
@@ -268,12 +274,6 @@ https://ipusiron.github.io/crypto-emoji-translator/?mode=caesar&set=foods&shift=
 - **同じ絵文字でも、端末やフォントによって見た目が変わります。**これは規格が認めている挙動です（UTS #51「The shape of the character can vary significantly」）。情報を担っているのは見た目ではなくコードポイント列なので、復号そのものには影響しません。
 - **ZWJでつないだ絵文字（👨‍👩‍👧 など）は置換表に使っていません。**`👨‍👩‍👧`（1文字相当）と `👨👩👧`（3文字）が同じ記号列になり、**逆変換が一意に決まらない**ためです。
 - **モールス符号は A–Z と 0–9 だけに対応しています。**ITU-R M.1677-1 が定める記号（`.` `,` `?` など20項目）と和文（無線局運用規則 別表第一号）には未対応で、対応表にない文字は黙って落ちます。
-
----
-
-
----
-
 
 ---
 
@@ -331,9 +331,6 @@ https://ipusiron.github.io/crypto-emoji-translator/?mode=caesar&set=foods&shift=
 - **学習用のツールです。秘密を守る目的には使えません。**置換表を知られれば読めますし、知られなくても頻度分析で崩せます
 - 絵文字にしても暗号の強度は上がりません。**変わるのは見た目だけ**です
 - 端末によって絵文字の見た目が変わるため、印刷物や画像にして配るときは注意が要ります
-
----
-
 
 ---
 
@@ -408,9 +405,6 @@ crypto-emoji-translator/
 ├── README.md               # このファイル
 └── README.en.md            # 英語版のREADME
 ```
-
----
-
 
 ---
 
