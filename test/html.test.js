@@ -103,3 +103,20 @@ test('主要な要素の id がそろっている', () => {
     assert.ok(main.includes(`id="${id}"`), `main.js が id="${id}" を作っていない`);
   }
 });
+
+test('ファビコンがあり、404を出さない', () => {
+  // 指定が無いと、ブラウザーがページを開くたびに /favicon.ico を取りに行って404になる
+  assert.match(html, /<link rel="icon" href="assets\/favicon\.svg" type="image\/svg\+xml" \/>/);
+  const svg = read('assets/favicon.svg');
+  assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+  assert.match(svg, /viewBox="0 0 32 32"/);
+  // 読み上げ用の説明がある
+  assert.match(svg, /role="img"/);
+  assert.match(svg, /aria-label="[^"]+"/);
+  // 外部を読みに行かない（CSP の img-src 'self' に収まる）
+  // xmlns は名前空間の識別子なので取得には行かない。実際に読みに行く書き方だけを見る
+  assert.doesNotMatch(svg, /(href|src|xlink:href)\s*=\s*"https?:/i);
+  assert.doesNotMatch(svg, /url\(\s*['"]?https?:/i);
+  assert.doesNotMatch(svg, /<(script|image|foreignObject)/i);
+  assert.ok(svg.length < 2000, `favicon が ${svg.length} バイト`);
+});
