@@ -158,9 +158,19 @@ function mountModeOptions(){
         <input id="opt-key" type="text" value="LEMON"/>
       </div>`;
   }
-  // Morse: 追加オプションなし
+  // Morse: 符号表（欧文／和文）を選ぶ
   else if(mode==='morse'){
-    // No additional options for Morse mode
+    container.innerHTML = `
+      <div class="row">
+        <label for="opt-morse-variant">
+          <span data-i18n="mode.morse_variant">符号表</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.morse_variant_help')}">?</button>
+        </label>
+        <select id="opt-morse-variant">
+          <option value="international" data-i18n="mode.morse_intl">欧文（ITU-R M.1677-1）</option>
+          <option value="wabun" data-i18n="mode.morse_wabun">和文（無線局運用規則 別表第一号）</option>
+        </select>
+      </div>`;
   }
   // Binary: チャンク区切り選択
   else if(mode==='binary'){
@@ -188,6 +198,22 @@ function mountModeOptions(){
         <select id="opt-hex-chunk">
           <option value="2">2</option>
           <option value="none" data-i18n="mode.chunk_none">なし</option>
+        </select>
+      </div>`;
+  }
+  // Bytes: チャンク区切り選択
+  else if(mode==='bytes'){
+    container.innerHTML = `
+      <div class="note" data-i18n="mode.bytes_note">UTF-8のバイト1つを絵文字1つに置き換えます。256個の絵文字を使うので、日本語でも数字でも記号でも通ります。</div>
+      <div class="row">
+        <label for="opt-byte-chunk">
+          <span data-i18n="mode.byte_chunk">チャンク区切り</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.byte_chunk_help')}">?</button>
+        </label>
+        <select id="opt-byte-chunk">
+          <option value="none" data-i18n="mode.chunk_none">なし</option>
+          <option value="4">4</option>
+          <option value="8">8</option>
         </select>
       </div>`;
   }
@@ -278,6 +304,38 @@ function normalizeInput(str){
  * エンコード/デコード処理
  * ============================================ */
 
+/** いま選ばれているバイトモードのチャンク区切り */
+function byteChunk(){
+  const el = document.getElementById('opt-byte-chunk');
+  return el ? el.value : 'none';
+}
+
+/** いま選ばれているモールスの符号表 */
+function morseVariant(){
+  const el = document.getElementById('opt-morse-variant');
+  return (el && el.value === 'wabun') ? 'wabun' : 'international';
+}
+
+/**
+ * 符号表に無くて落とした文字を知らせる
+ * 黙って消すと「変換できた」と誤解されるため
+ * @param {string[]} dropped
+ */
+function noteDropped(dropped){
+  if(!dropped || !dropped.length) return;
+  const uniq = [...new Set(dropped)].slice(0, 12).join(' ');
+  showToast(t('toast.morse_dropped', { chars: uniq, count: dropped.length }));
+}
+
+/**
+ * 符号表に無かった符号を知らせる
+ * @param {string[]} unknown
+ */
+function noteUnknown(unknown){
+  if(!unknown || !unknown.length) return;
+  showToast(t('toast.morse_unknown', { count: unknown.length }));
+}
+
 /**
  * 現在のモードとオプションに応じてエンコード実行
  */
@@ -296,8 +354,13 @@ function encodeCurrent(){
     out = Vigenere.encodeToEmoji(normalizeInput(input), key, set);
     hint = `Vigenère / key=${key}`;
   }else if(mode==='morse'){
-    out = Morse.encodeToEmoji(normalizeInput(input));
-    hint = `Morse to Emoji（⚫=dot, ⚪=dash）`;
+    const variant = morseVariant();
+    // 和文は大文字化・記号削除の対象にしないので、整形せずそのまま渡す
+    const src = (variant==='wabun') ? input : normalizeInput(input);
+    const r = Morse.encode(src, variant);
+    out = r.emoji;
+    hint = t('hint.morse_encode', { variant: t(`mode.morse_${variant==='wabun'?'wabun':'intl'}`) });
+    noteDropped(r.dropped);
   }else if(mode==='binary'){
     const chunk = EL('opt-bin-chunk').value;
     out = BinaryHex.encodeBinaryToEmoji(input, chunk);
@@ -306,6 +369,11 @@ function encodeCurrent(){
     const chunk = EL('opt-hex-chunk').value;
     out = BinaryHex.encodeHexToEmoji(input, chunk);
     hint = `Hex to Emoji`;
+  }else if(mode==='bytes'){
+    const chunk = byteChunk();
+    const r = ByteCode.encode(input, chunk);
+    out = r.emoji;
+    hint = t('hint.bytes_encode', { bytes: r.bytes });
   }else if(mode==='custom'){
     out = Caesar.encodeToEmoji(normalizeInput(input), 0, State.mapping26);
     hint = `Custom Map`;
@@ -332,14 +400,23 @@ function decodeCurrent(){
     out = Vigenere.decodeFromEmoji(input, key, set);
     hint = `Decode Vigenère / key=${key}`;
   }else if(mode==='morse'){
-    out = Morse.decodeFromEmoji(input);
-    hint = `Emoji to Morse/Text`;
+    const variant = morseVariant();
+    const r = Morse.decode(input, variant);
+    out = r.text;
+    hint = t('hint.morse_decode', { variant: t(`mode.morse_${variant==='wabun'?'wabun':'intl'}`) });
+    noteUnknown(r.unknown);
   }else if(mode==='binary'){
     out = BinaryHex.decodeBinaryFromEmoji(input);
     hint = `Emoji to Binary → Text`;
   }else if(mode==='hex'){
     out = BinaryHex.decodeHexFromEmoji(input);
     hint = `Emoji to Hex → Text`;
+  }else if(mode==='bytes'){
+    const r = ByteCode.decode(input);
+    out = r.text;
+    hint = t('hint.bytes_decode', { bytes: r.bytes });
+    if(r.unknown.length) showToast(t('toast.bytes_unknown', { count: r.unknown.length }));
+    if(!r.valid) showToast(t('toast.bytes_invalid'));
   }else if(mode==='custom'){
     out = Caesar.decodeFromEmoji(input, 0, State.mapping26);
     hint = `Decode with Custom Map`;
@@ -434,9 +511,10 @@ function newPractice(){
   const toEmoji = {
     caesar: (s)=> Caesar.encodeToEmoji(s, 3, State.mapping26),
     vigenere: (s)=> Vigenere.encodeToEmoji(s, 'LEMON', State.mapping26),
-    morse: (s)=> Morse.encodeToEmoji(s),
+    morse: (s)=> Morse.encodeToEmoji(s, 'international'),
     binary: (s)=> BinaryHex.encodeBinaryToEmoji(s, '8'),
     hex: (s)=> BinaryHex.encodeHexToEmoji(s, '2'),
+    bytes: (s)=> ByteCode.encode(s, 'none').emoji,
   }[mode];
   const emoji = toEmoji ? toEmoji(pick) : pick;
 
@@ -504,14 +582,411 @@ function updateShareURL(){
     params.set('shift', EL('opt-shift').value);
   }else if(State.currentMode==='vigenere'){
     params.set('key', (EL('opt-key').value||'').toUpperCase());
+  }else if(State.currentMode==='morse'){
+    params.set('mvar', morseVariant());
   }else if(State.currentMode==='binary'){
     params.set('bchunk', EL('opt-bin-chunk').value);
   }else if(State.currentMode==='hex'){
     params.set('hchunk', EL('opt-hex-chunk').value);
+  }else if(State.currentMode==='bytes'){
+    params.set('ychunk', byteChunk());
+  }else if(State.currentMode==='custom'){
+    // カスタムマップそのものを載せる（A–Z の順に26個つなげるだけ）
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    if(letters.every((L)=>State.mapping26[L])){
+      params.set('cmap', letters.map((L)=>State.mapping26[L]).join(''));
+    }
   }
 
   const url = `${location.origin}${location.pathname}?${params.toString()}`;
   EL('share-url').value = url;
+}
+
+/* ============================================
+ * Crack Tab - 鍵を知らずに読む（解読演習）
+ * ============================================
+ *
+ * 座学で「絵文字にしても頻度分布は残る」と説いていることを、
+ * 読み手が自分の手で確かめるための画面。計算は js/modes/cryptanalysis.js にある。
+ */
+
+// 絵文字 → A–Z の割り当て。利用者が手で動かす
+let crackAssignment = Object.create(null);
+
+/** 解読タブの入力 */
+function crackCipher(){
+  return EL('crack-input').value || '';
+}
+
+/** 頻度の一覧を描く（棒の長さで多さを示す） */
+function renderCrackFrequency(){
+  const box = EL('crack-freq');
+  box.replaceChildren();
+  const { ranked, total } = Cryptanalysis.frequency(crackCipher());
+  if(!total){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('crack.need_input');
+    box.append(p);
+    return;
+  }
+  const max = ranked[0].count;
+  for(const r of ranked){
+    const row = document.createElement('div');
+    row.className = 'freq-row';
+
+    const sym = document.createElement('span');
+    sym.className = 'freq-symbol';
+    sym.textContent = r.symbol;
+    row.append(sym);
+
+    const bar = document.createElement('span');
+    bar.className = 'freq-bar';
+    bar.style.width = `${Math.round((r.count / max) * 100)}%`;
+    const barWrap = document.createElement('span');
+    barWrap.className = 'freq-bar-wrap';
+    barWrap.append(bar);
+    row.append(barWrap);
+
+    const num = document.createElement('span');
+    num.className = 'freq-count';
+    num.textContent = t('crack.freq_count', { count: r.count, percent: r.percent.toFixed(1) });
+    row.append(num);
+
+    // 割り当て欄（A–Z と「未割り当て」）
+    const sel = document.createElement('select');
+    sel.className = 'freq-assign';
+    sel.setAttribute('aria-label', t('crack.assign_label', { symbol: r.symbol }));
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '—';
+    sel.append(none);
+    for(const L of Cryptanalysis.LETTERS){
+      const o = document.createElement('option');
+      o.value = L;
+      o.textContent = L;
+      sel.append(o);
+    }
+    sel.value = crackAssignment[r.symbol] || '';
+    sel.addEventListener('change', ()=>{
+      if(sel.value) crackAssignment[r.symbol] = sel.value;
+      else delete crackAssignment[r.symbol];
+      renderCrackPlain();
+      markCrackConflicts();
+    });
+    row.append(sel);
+    box.append(row);
+  }
+  markCrackConflicts();
+}
+
+/** 同じ文字に2つ以上の絵文字が当たっていたら印をつける */
+function markCrackConflicts(){
+  const { duplicated } = Cryptanalysis.validate(crackAssignment);
+  const warn = EL('crack-warn');
+  for(const sel of document.querySelectorAll('#crack-freq .freq-assign')){
+    sel.classList.toggle('conflict', !!sel.value && duplicated.includes(sel.value));
+  }
+  if(duplicated.length){
+    warn.textContent = t('crack.conflict', { letters: duplicated.join(' ') });
+    warn.hidden = false;
+  }else{
+    warn.hidden = true;
+  }
+}
+
+/** いまの割り当てで読める範囲を出す */
+function renderCrackPlain(){
+  const cipher = crackCipher();
+  const { text, solved, total } = Cryptanalysis.apply(cipher, crackAssignment);
+  EL('crack-plain').textContent = text;
+  renderCrackDifficulty(total);
+  const lk = Cryptanalysis.likelihood(cipher, crackAssignment);
+  EL('crack-stats').textContent = total
+    ? t('crack.stats', { solved, total, score: (lk.score * 100).toFixed(0) })
+    : '';
+}
+
+/**
+ * いまの暗号文が、どれくらいの長さなら鍵が1つに決まるかの目安を出す
+ * @param {number} length - 暗号文の記号数
+ */
+function renderCrackDifficulty(length){
+  const el = document.getElementById('crack-difficulty');
+  if(!el) return;
+  if(!length){ el.textContent = ''; return; }
+  const u = Cryptanalysis.unicityDistance('substitution');
+  const ratio = length / u.distance;
+  el.textContent = t('crack.difficulty', {
+    length,
+    keyspace: u.keyspace,
+    bits: u.keyBits.toFixed(0),
+    need: Math.ceil(u.distance),
+    verdict: t(ratio >= 2 ? 'crack.verdict_enough'
+      : ratio >= 1 ? 'crack.verdict_borderline'
+      : 'crack.verdict_short'),
+  });
+}
+
+/** クリブを当てはめられる位置を探して並べる */
+function renderCrackCrib(){
+  const box = EL('crack-crib-result');
+  box.replaceChildren();
+  const cipher = crackCipher();
+  const crib = EL('crack-crib').value || '';
+  const hits = Cryptanalysis.cribPositions(cipher, crib);
+  if(!hits.length){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('crack.crib_none');
+    box.append(p);
+    return;
+  }
+  const head = document.createElement('p');
+  head.className = 'muted';
+  head.textContent = t('crack.crib_found', { count: hits.length });
+  box.append(head);
+
+  const symbols = Graphemes.split(cipher).filter((g)=>g.trim()!=='');
+  for(const hit of hits.slice(0, 30)){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'secondary crib-hit';
+    const run = symbols.slice(hit.index, hit.index + Object.keys(hit.assignment).length + 3).join('');
+    btn.textContent = t('crack.crib_apply', { index: hit.index + 1, run: run.slice(0, 12) });
+    btn.addEventListener('click', ()=>{
+      Object.assign(crackAssignment, hit.assignment);
+      renderCrackFrequency();
+      renderCrackPlain();
+    });
+    box.append(btn);
+  }
+}
+
+/** 解読タブのボタンをつなぐ */
+function initCrackTab(){
+  if(!document.getElementById('crack-input')) return;
+
+  EL('crack-analyze').addEventListener('click', ()=>{
+    renderCrackFrequency();
+    renderCrackPlain();
+  });
+
+  EL('crack-guess').addEventListener('click', ()=>{
+    crackAssignment = Cryptanalysis.guessByFrequency(crackCipher());
+    renderCrackFrequency();
+    renderCrackPlain();
+    showToast(t('toast.crack_guessed'));
+  });
+
+  EL('crack-clear').addEventListener('click', ()=>{
+    crackAssignment = Object.create(null);
+    renderCrackFrequency();
+    renderCrackPlain();
+  });
+
+  EL('crack-sample').addEventListener('click', ()=>{
+    // 例文は、いま選ばれている絵文字セットでシーザー暗号にしたもの（鍵は見せない）
+    rebuildMappingFromSet();
+    const shift = 7;
+    const sample = t('crack.sample_text');
+    EL('crack-input').value = Caesar.encodeToEmoji(sample.toUpperCase().replace(/[^A-Z ]/g,''), shift, State.mapping26);
+    crackAssignment = Object.create(null);
+    renderCrackFrequency();
+    renderCrackPlain();
+    EL('crack-crib').value = t('crack.sample_crib');
+    renderCrackCrib();
+  });
+
+  EL('crack-find').addEventListener('click', renderCrackCrib);
+  EL('crack-input').addEventListener('input', ()=>{
+    crackAssignment = Object.create(null);
+  });
+}
+
+/* ============================================
+ * Diagnose Tab - 置換表の点検
+ * ============================================ */
+
+/**
+ * この画面で絵文字を白黒に落としたとき、見分けがつかない組を探す
+ * 見た目は環境で変わるので、**いまこのブラウザーでの話**であることを画面で断る
+ * @param {Object<string,string>} map
+ * @returns {Array<{a:string, b:string, emojiA:string, emojiB:string, diff:number}>}
+ */
+function findLookAlikes(map){
+  const SIZE = 24;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if(!ctx) return [];
+  ctx.font = `${SIZE - 4}px sans-serif`;
+  ctx.textBaseline = 'top';
+
+  // 絵文字ごとに、白黒の濃さの並びを取る
+  const shapes = {};
+  for(const [L, emoji] of Object.entries(map)){
+    if(!emoji) continue;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.fillText(emoji, 0, 0);
+    const d = ctx.getImageData(0, 0, SIZE, SIZE).data;
+    const gray = new Float32Array(SIZE * SIZE);
+    for(let i = 0; i < gray.length; i++){
+      const o = i * 4;
+      const a = d[o + 3] / 255;
+      // 透明なところは白とみなす
+      gray[i] = a * (0.2126 * d[o] + 0.7152 * d[o + 1] + 0.0722 * d[o + 2]) + (1 - a) * 255;
+    }
+    shapes[L] = gray;
+  }
+
+  const letters = Object.keys(shapes);
+  const out = [];
+  for(let i = 0; i < letters.length; i++){
+    for(let j = i + 1; j < letters.length; j++){
+      const a = shapes[letters[i]];
+      const b = shapes[letters[j]];
+      let sum = 0;
+      for(let k = 0; k < a.length; k++) sum += Math.abs(a[k] - b[k]);
+      const diff = sum / a.length; // 0〜255。小さいほど似ている
+      if(diff < 12){
+        out.push({ a: letters[i], b: letters[j], emojiA: map[letters[i]], emojiB: map[letters[j]], diff });
+      }
+    }
+  }
+  return out.sort((x, y) => x.diff - y.diff).slice(0, 12);
+}
+
+/** 点検の結果を描く */
+function renderDiagnose(){
+  const box = EL('diag-result');
+  box.replaceChildren();
+  rebuildMappingFromSet();
+  const map = State.mapping26;
+  const { issues, ok, checked } = Diagnose.check(map);
+
+  const head = document.createElement('p');
+  head.className = 'muted';
+  head.textContent = t('diag.checked', { count: checked });
+  box.append(head);
+
+  if(ok && !issues.length){
+    const p = document.createElement('p');
+    p.className = 'note success';
+    p.textContent = t('diag.clean');
+    box.append(p);
+  }
+
+  for(const issue of issues){
+    const p = document.createElement('p');
+    p.className = `note ${issue.level === 'error' ? 'error' : 'warning'}`;
+    const title = document.createElement('strong');
+    title.textContent = t(`diag.kind_${issue.kind}`);
+    p.append(title, document.createTextNode(' '));
+    p.append(document.createTextNode(t('diag.letters', { letters: issue.letters.join(' ') })));
+    const detail = document.createElement('div');
+    detail.className = 'diag-detail';
+    detail.textContent = issue.detail;
+    p.append(detail);
+    box.append(p);
+  }
+
+  // 白黒にしたときに見分けにくい組
+  const alike = findLookAlikes(map);
+  const p = document.createElement('p');
+  p.className = alike.length ? 'note warning' : 'note';
+  if(alike.length){
+    const title = document.createElement('strong');
+    title.textContent = t('diag.kind_lookAlike');
+    p.append(title, document.createTextNode(' '));
+    p.append(document.createTextNode(alike.map((x) => `${x.a}${x.emojiA}／${x.b}${x.emojiB}`).join('  ')));
+  }else{
+    p.textContent = t('diag.lookAlike_none');
+  }
+  box.append(p);
+
+  const note = document.createElement('p');
+  note.className = 'muted';
+  note.textContent = t('diag.env_note');
+  box.append(note);
+}
+
+/* ============================================
+ * Hidden Channel - 見えない文字を調べる
+ * ============================================ */
+
+/** 調べた結果を描く */
+function renderHiddenScan(){
+  const box = EL('hidden-result');
+  box.replaceChildren();
+  const text = EL('hidden-input').value || '';
+  if(!text){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('hidden.need_input');
+    box.append(p);
+    return;
+  }
+  const r = HiddenChannel.scan(text);
+
+  const head = document.createElement('p');
+  head.className = r.total ? 'note warning' : 'note success';
+  head.textContent = r.total
+    ? t('hidden.found', { count: r.total })
+    : t('hidden.none');
+  box.append(head);
+  if(!r.total) return;
+
+  const list = document.createElement('ul');
+  for(const [kind, count] of Object.entries(r.counts)){
+    if(!count) continue;
+    const li = document.createElement('li');
+    li.textContent = t(`hidden.kind_${kind}`, { count });
+    list.append(li);
+  }
+  box.append(list);
+
+  const visible = document.createElement('p');
+  visible.textContent = t('hidden.visible', { text: r.cleaned });
+  box.append(visible);
+
+  // 仕込まれたバイト列として読んでみる
+  const pay = HiddenChannel.extractPayload(text);
+  if(pay.bytes.length){
+    const p = document.createElement('p');
+    p.className = 'note';
+    const title = document.createElement('strong');
+    title.textContent = t('hidden.payload_title');
+    p.append(title);
+    const body = document.createElement('div');
+    body.className = 'mono';
+    body.textContent = pay.valid && pay.text.trim()
+      ? pay.text
+      : t('hidden.payload_unreadable', { bytes: pay.bytes.length });
+    p.append(body);
+    if(pay.usedPresentationSelector){
+      const warn = document.createElement('div');
+      warn.className = 'muted';
+      warn.textContent = t('hidden.payload_ambiguous');
+      p.append(warn);
+    }
+    box.append(p);
+  }
+}
+
+/** 見えない文字の画面をつなぐ */
+function initHiddenTab(){
+  if(!document.getElementById('hidden-input')) return;
+  EL('hidden-scan').addEventListener('click', renderHiddenScan);
+  EL('hidden-strip').addEventListener('click', ()=>{
+    EL('hidden-input').value = HiddenChannel.strip(EL('hidden-input').value || '');
+    renderHiddenScan();
+  });
+  EL('hidden-demo').addEventListener('click', ()=>{
+    EL('hidden-input').value = HiddenChannel.embed('😀', t('hidden.demo_secret'));
+    renderHiddenScan();
+  });
 }
 
 /**
@@ -544,12 +1019,32 @@ function applyParams(){
   // モード別パラメーター
   if(mode==='caesar'){
     const sh = qs.get('shift'); if(sh) EL('opt-shift').value = sh;
+  }else if(mode==='morse'){
+    const mv = qs.get('mvar');
+    if(mv && EL('opt-morse-variant')) EL('opt-morse-variant').value = mv;
   }else if(mode==='vigenere'){
     const k = qs.get('key'); if(k) EL('opt-key').value = k;
   }else if(mode==='binary'){
     const b = qs.get('bchunk'); if(b) EL('opt-bin-chunk').value=b;
   }else if(mode==='hex'){
     const h = qs.get('hchunk'); if(h) EL('opt-hex-chunk').value=h;
+  }else if(mode==='bytes'){
+    const y = qs.get('ychunk');
+    if(y && EL('opt-byte-chunk')) EL('opt-byte-chunk').value=y;
+  }else if(mode==='custom'){
+    const cm = qs.get('cmap');
+    if(cm){
+      const parts = Graphemes.split(cm);
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      if(parts.length === 26 && new Set(parts).size === 26){
+        const map = {};
+        letters.forEach((L,i)=>{ map[L] = parts[i]; });
+        State.mapping26 = map;
+        renderVisualizerGrid();
+      }else{
+        showToast(t('toast.cmap_invalid', { count: parts.length }));
+      }
+    }
   }
 }
 
@@ -643,6 +1138,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     EL('lang-en').checked = true;
     State.currentLang = 'en';
     applyTranslations();
+  }
+
+  // 解読タブ
+  initCrackTab();
+
+  // 見えない文字を調べる
+  initHiddenTab();
+
+  // 置換表の点検
+  if(document.getElementById('diag-run')){
+    EL('diag-run').addEventListener('click', renderDiagnose);
   }
 
   // カスタムマップ初期化

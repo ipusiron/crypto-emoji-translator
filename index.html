@@ -19,6 +19,7 @@
     <button class="tab active" id="tab-btn-transform" data-tab="transform" role="tab" aria-controls="tab-transform" aria-selected="true" tabindex="0" data-i18n="tab.transform">変換</button>
     <button class="tab" id="tab-btn-visualizer" data-tab="visualizer" role="tab" aria-controls="tab-visualizer" aria-selected="false" tabindex="-1" data-i18n="tab.visualizer">対応表</button>
     <button class="tab" id="tab-btn-practice" data-tab="practice" role="tab" aria-controls="tab-practice" aria-selected="false" tabindex="-1" data-i18n="tab.practice">練習</button>
+    <button class="tab" id="tab-btn-crack" data-tab="crack" role="tab" aria-controls="tab-crack" aria-selected="false" tabindex="-1" data-i18n="tab.crack">解読</button>
     <button class="tab" id="tab-btn-learn" data-tab="learn" role="tab" aria-controls="tab-learn" aria-selected="false" tabindex="-1" data-i18n="tab.learn">座学</button>
     <button class="tab" id="tab-btn-settings" data-tab="settings" role="tab" aria-controls="tab-settings" aria-selected="false" tabindex="-1" data-i18n="tab.settings">設定</button>
   </nav>
@@ -38,6 +39,7 @@
             <option value="morse" data-i18n="transform.mode_morse">モールス符号 ↔ 絵文字</option>
             <option value="binary" data-i18n="transform.mode_binary">バイナリ ↔ 絵文字</option>
             <option value="hex" data-i18n="transform.mode_hex">16進数 ↔ 絵文字</option>
+            <option value="bytes" data-i18n="transform.mode_bytes">バイト（Base100）↔ 絵文字</option>
             <option value="custom" data-i18n="transform.mode_custom">カスタムマップ</option>
           </select>
         </div>
@@ -130,6 +132,7 @@
           <option value="morse" data-i18n="practice.mode_morse">モールス符号</option>
           <option value="binary" data-i18n="practice.mode_binary">バイナリ</option>
           <option value="hex" data-i18n="practice.mode_hex">16進数</option>
+          <option value="bytes" data-i18n="practice.mode_bytes">バイト（Base100）</option>
         </select>
         <button id="practice-new" data-i18n="practice.new">新しい問題</button>
       </div>
@@ -153,6 +156,70 @@
   </section>
 
   <!-- Learn -->
+  <!-- Crack -->
+  <section id="tab-crack" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-crack">
+    <div class="card">
+      <h2 data-i18n="crack.title">解読演習（鍵を知らずに読む）</h2>
+      <div class="note" data-i18n="crack.intro">絵文字にしても、どの記号が何回出るかは平文のままです。多い絵文字から順に当てていき、分かっている語（クリブ）で裏を取ると読めます。既存の換字解読ツールはA–Zしか受け付けないので、絵文字の暗号文はここで解きます。</div>
+
+      <div class="controls">
+        <label for="crack-input" data-i18n="crack.input_label">暗号文</label>
+        <textarea id="crack-input" rows="4" data-i18n="crack.input_placeholder" placeholder="絵文字の暗号文を貼り付け"></textarea>
+        <div class="row">
+          <button id="crack-analyze" class="primary" data-i18n="crack.analyze">頻度を数える</button>
+          <button id="crack-guess" class="secondary" data-i18n="crack.guess">頻度順で下書き</button>
+          <button id="crack-clear" class="secondary" data-i18n="crack.clear">割り当てを消す</button>
+          <button id="crack-sample" class="secondary" data-i18n="crack.sample">例文を入れる</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="crack.freq_title">絵文字の出現頻度</h3>
+      <div class="note" data-i18n="crack.freq_note">棒の長さが出現の多さです。英語なら E・T・A・O・I・N の順に多いのがふつうなので、そこから当てていきます。</div>
+      <div id="crack-freq" class="freq-list" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="crack.crib_title">クリブ（分かっている語）</h3>
+      <div class="note" data-i18n="crack.crib_note">平文に入っているはずの語を入れると、当てはめられる位置を探します。候補を押すと、その対応を割り当てに取り込みます。</div>
+      <div class="row">
+        <label for="crack-crib" data-i18n="crack.crib_label">語</label>
+        <input id="crack-crib" type="text" value="THE" />
+        <button id="crack-find" class="secondary" data-i18n="crack.find">当てはめ先を探す</button>
+      </div>
+      <div id="crack-crib-result" class="crib-list" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="crack.plain_title">いまの読み</h3>
+      <div class="row">
+        <span id="crack-stats" class="muted" aria-live="polite"></span>
+      </div>
+      <div class="row">
+        <span id="crack-difficulty" class="muted" aria-live="polite"></span>
+      </div>
+      <div id="crack-plain" class="result-box mono" aria-live="polite"></div>
+      <div id="crack-warn" class="note error" hidden></div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="hidden.title">見えない文字を調べる</h3>
+      <div class="note" data-i18n="hidden.note">絵文字の後ろには、画面に何も描かないのに情報を運べる文字を並べられます。2025年に広まった方式では、異体字セレクター256個に1バイトずつ載せて、見た目を変えずに文章を隠します。ここでは、貼った文字列にそれが入っていないかを調べます。</div>
+
+      <div class="controls">
+        <label for="hidden-input" data-i18n="hidden.input_label">調べる文字列</label>
+        <textarea id="hidden-input" rows="3" data-i18n="hidden.input_placeholder" placeholder="絵文字や文章を貼り付け"></textarea>
+        <div class="row">
+          <button id="hidden-scan" class="primary" data-i18n="hidden.scan">調べる</button>
+          <button id="hidden-strip" class="secondary" data-i18n="hidden.strip">取り除く</button>
+          <button id="hidden-demo" class="secondary" data-i18n="hidden.demo">仕込んだ例を作る</button>
+        </div>
+      </div>
+
+      <div id="hidden-result" class="hidden-result" aria-live="polite"></div>
+    </div>
+  </section>
+
   <section id="tab-learn" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-learn">
     <div class="card">
       <h2 data-i18n="learn.title">学びの要点</h2>
@@ -288,6 +355,14 @@
         <label><input type="radio" name="language" id="lang-en"> <span data-i18n="settings.lang_en">English</span></label>
       </div>
     </div>
+      <div class="card">
+      <h3 data-i18n="diag.title">置換表の点検</h3>
+      <div class="note" data-i18n="diag.note">いまの置換表に、復号で壊れる絵文字や、読み違えやすい組が入っていないかを調べます。見た目が環境で変わる点は規格が認めているので、ここではコードポイントからわかることと、この画面での見え方を見ます。</div>
+      <div class="row">
+        <button id="diag-run" class="primary" data-i18n="diag.run">点検する</button>
+      </div>
+      <div id="diag-result" class="diag-result" aria-live="polite"></div>
+    </div>
   </section>
 </main>
 
@@ -304,6 +379,10 @@
 <script src="js/modes/vigenere.js"></script>
 <script src="js/modes/morse.js"></script>
 <script src="js/modes/binaryhex.js"></script>
+<script src="js/modes/bytes.js"></script>
+<script src="js/modes/cryptanalysis.js"></script>
+<script src="js/modes/diagnose.js"></script>
+<script src="js/modes/hidden.js"></script>
 <script src="js/custommap.js"></script>
 <script src="js/main.js"></script>
 </body>

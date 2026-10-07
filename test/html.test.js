@@ -17,6 +17,10 @@ test('スクリプトは計算部・画面の順に読み込み、重複がな�
     'js/modes/vigenere.js',
     'js/modes/morse.js',
     'js/modes/binaryhex.js',
+    'js/modes/bytes.js',
+    'js/modes/cryptanalysis.js',
+    'js/modes/diagnose.js',
+    'js/modes/hidden.js',
     'js/custommap.js',
     'js/main.js',
   ]);

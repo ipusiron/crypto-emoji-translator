@@ -74,9 +74,13 @@ test('変換モードの説明が実装と合っている', () => {
   assert.ok(readme.includes('⓿➊➋…🅕'), '16進数の絵文字が README と違う');
   assert.equal(BinaryHex.HEX[0], '⓿');
   assert.equal(BinaryHex.HEX[15], '🅕');
-  // モールスは A–Z と 0–9 だけ、という記述を裏づける
-  assert.ok(readme.includes('モールス符号は A–Z と 0–9 だけに対応しています'));
-  assert.equal(Object.keys(Morse.MAP).length, 36);
+  // 符号表の件数と、欧文・和文のあいだの衝突の数を README と突き合わせる
+  const intl = Object.keys(Morse.TABLES.international).length;
+  const wabun = Object.keys(Morse.TABLES.wabun).length;
+  const clash = Morse.collisions().length;
+  assert.ok(readme.includes(`ITU-R M.1677-1、${intl}項目`), `欧文の件数が README と違う（${intl}）`);
+  assert.ok(readme.includes(`別表第一号、${wabun}項目`), `和文の件数が README と違う（${wabun}）`);
+  assert.ok(readme.includes(`両者は${clash}個の符号が重なる`), `衝突の数が README と違う（${clash}）`);
 });
 
 test('共有URLの例が、いまのパラメーターで動く形になっている', () => {
@@ -160,7 +164,7 @@ test('両方のREADMEが互いにリンクしている', () => {
 test('英語版の画像がすべて実在し、英語の画面である', () => {
   const imgs = [...readmeEn.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]);
   const local = imgs.filter((u) => !u.startsWith('http'));
-  assert.equal(local.length, 5, `画像の参照が ${local.length} 件`);
+  assert.equal(local.length, 6, `画像の参照が ${local.length} 件`);
   for (const rel of local) {
     assert.ok(rel.startsWith('assets/en/'), `英語版は英語の画面を使う: ${rel}`);
     assert.ok(fs.existsSync(new URL(rel, ROOT)), `${rel} がない`);
@@ -169,7 +173,7 @@ test('英語版の画像がすべて実在し、英語の画面である', () =>
 
 test('日本語版の画像もすべて実在する', () => {
   const imgs = [...readme.matchAll(/!\[[^\]]*\]\((assets\/[^)]+)\)/g)].map((m) => m[1]);
-  assert.equal(imgs.length, 5, `画像の参照が ${imgs.length} 件`);
+  assert.equal(imgs.length, 6, `画像の参照が ${imgs.length} 件`);
   for (const rel of imgs) {
     assert.ok(!rel.startsWith('assets/en/'), `日本語版は日本語の画面を使う: ${rel}`);
     assert.ok(fs.existsSync(new URL(rel, ROOT)), `${rel} がない`);
