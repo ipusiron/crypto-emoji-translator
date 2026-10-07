@@ -19,13 +19,14 @@ const Vigenere = {
   },
   decodeFromEmoji(emojiStr, key, map){
     if(!key) return emojiStr;
-    const inv = {};
-    for(const [k,v] of Object.entries(map)) inv[v]=k;
-    const clusters = Array.from(emojiStr);
+    // 異体字セレクターつきの絵文字が割れないよう、分割と逆引きは Graphemes に任せる
+    const inv = Graphemes.buildInverse(map);
+    const clusters = Graphemes.split(emojiStr);
     let out=''; let ki=0;
     for(const g of clusters){
-      if(inv[g]){
-        const c = inv[g].charCodeAt(0)-65;
+      const letter = Graphemes.lookup(inv, g);
+      if(letter){
+        const c = letter.charCodeAt(0)-65;
         const k = key[ki % key.length].charCodeAt(0)-65;
         const d = (c - k + 26) % 26;
         out += String.fromCharCode(65+d);
@@ -37,3 +38,5 @@ const Vigenere = {
     return out;
   }
 };
+
+globalThis.Vigenere = Vigenere;

@@ -60,3 +60,5 @@ const Morse = (()=>{
 
   return {MAP, encodeToEmoji, decodeFromEmoji, morseToEmoji};
 })();
+
+globalThis.Morse = Morse;

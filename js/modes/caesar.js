@@ -58,18 +58,18 @@ const Caesar = {
    * 3. シフトを逆方向に適用して元の文字に戻す
    */
   decodeFromEmoji(emojiStr, shift, map){
-    // マッピングを反転（絵文字→文字）
-    const inv = {};
-    for(const [k,v] of Object.entries(map)) inv[v]=k;
+    // マッピングを反転（絵文字→文字）。異体字セレクターの有無を問わず引けるようにする
+    const inv = Graphemes.buildInverse(map);
 
     // 絵文字列をグラフェム単位で分割
     const clusters = Caesar.splitGraphemes(emojiStr);
     let out='';
 
     for(const g of clusters){
-      if(inv[g]){
+      const letter = Graphemes.lookup(inv, g);
+      if(letter){
         // 絵文字に対応する文字のインデックス
-        const idx = inv[g].charCodeAt(0)-65;
+        const idx = letter.charCodeAt(0)-65;
         // シフトを逆方向に適用（+26は負数回避）
         const d = (idx - shift + 26) % 26;
         // 元の文字を復元
@@ -88,11 +88,13 @@ const Caesar = {
    * @param {string} s - 分割対象の文字列
    * @returns {Array<string>} グラフェムの配列
    *
-   * 注: 本ツールの絵文字セットは単一コードポイントのみ使用し、
-   *     ZWJ合字やバリエーションセレクタは使用していないため、
-   *     Array.from() による簡易分割で十分。
+   * 注: 絵文字セットには異体字セレクター（U+FE0F）つきのものが含まれる
+   *     （☀️ ☁️ ❄️ 🌶️ ◻️ など）。Array.from() はコードポイント単位で分けるため
+   *     これらが2つに割れて逆引きが外れる。分割は Graphemes に任せる。
    */
   splitGraphemes(s){
-    return Array.from(s);
+    return Graphemes.split(s);
   }
 };
+
+globalThis.Caesar = Caesar;

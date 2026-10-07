@@ -28,11 +28,11 @@ const State = {
 /**
  * 絵文字セットをJSONファイルから読み込み、UIに反映
  */
-async function loadEmojiSets(){
-  const res = await fetch('data/emoji_sets.json');
-  const json = await res.json();
+function loadEmojiSets(){
+  // js/emoji-sets.js がスクリプトとして読み込む（fetch だと file:// で開けない）
+  const sets = globalThis.EmojiSets || [];
   // 配列をオブジェクトに変換（id をキーに）
-  State.emojiSets = json.reduce((a,s)=> (a[s.id]=s, a), {});
+  State.emojiSets = sets.reduce((a,s)=> (a[s.id]=s, a), {});
 
   // セレクトボックスに選択肢を追加
   const sel = EL('emoji-set');
@@ -524,12 +524,12 @@ function applyParams(){
 /* ============================================
  * イベントリスナー登録
  * ============================================ */
-document.addEventListener('DOMContentLoaded', async ()=>{
+document.addEventListener('DOMContentLoaded', ()=>{
   // タブ切り替え
   document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 
   // 初期化処理
-  await loadEmojiSets();
+  loadEmojiSets();
   renderMorseTable();
   mountModeOptions();
   applyParams(); // URLパラメーターがあれば復元
