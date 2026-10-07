@@ -776,6 +776,191 @@ function initCrackTab(){
   });
 }
 
+/* ============================================
+ * Diagnose Tab - 置換表の点検
+ * ============================================ */
+
+/**
+ * この画面で絵文字を白黒に落としたとき、見分けがつかない組を探す
+ * 見た目は環境で変わるので、**いまこのブラウザーでの話**であることを画面で断る
+ * @param {Object<string,string>} map
+ * @returns {Array<{a:string, b:string, emojiA:string, emojiB:string, diff:number}>}
+ */
+function findLookAlikes(map){
+  const SIZE = 24;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if(!ctx) return [];
+  ctx.font = `${SIZE - 4}px sans-serif`;
+  ctx.textBaseline = 'top';
+
+  // 絵文字ごとに、白黒の濃さの並びを取る
+  const shapes = {};
+  for(const [L, emoji] of Object.entries(map)){
+    if(!emoji) continue;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.fillText(emoji, 0, 0);
+    const d = ctx.getImageData(0, 0, SIZE, SIZE).data;
+    const gray = new Float32Array(SIZE * SIZE);
+    for(let i = 0; i < gray.length; i++){
+      const o = i * 4;
+      const a = d[o + 3] / 255;
+      // 透明なところは白とみなす
+      gray[i] = a * (0.2126 * d[o] + 0.7152 * d[o + 1] + 0.0722 * d[o + 2]) + (1 - a) * 255;
+    }
+    shapes[L] = gray;
+  }
+
+  const letters = Object.keys(shapes);
+  const out = [];
+  for(let i = 0; i < letters.length; i++){
+    for(let j = i + 1; j < letters.length; j++){
+      const a = shapes[letters[i]];
+      const b = shapes[letters[j]];
+      let sum = 0;
+      for(let k = 0; k < a.length; k++) sum += Math.abs(a[k] - b[k]);
+      const diff = sum / a.length; // 0〜255。小さいほど似ている
+      if(diff < 12){
+        out.push({ a: letters[i], b: letters[j], emojiA: map[letters[i]], emojiB: map[letters[j]], diff });
+      }
+    }
+  }
+  return out.sort((x, y) => x.diff - y.diff).slice(0, 12);
+}
+
+/** 点検の結果を描く */
+function renderDiagnose(){
+  const box = EL('diag-result');
+  box.replaceChildren();
+  rebuildMappingFromSet();
+  const map = State.mapping26;
+  const { issues, ok, checked } = Diagnose.check(map);
+
+  const head = document.createElement('p');
+  head.className = 'muted';
+  head.textContent = t('diag.checked', { count: checked });
+  box.append(head);
+
+  if(ok && !issues.length){
+    const p = document.createElement('p');
+    p.className = 'note success';
+    p.textContent = t('diag.clean');
+    box.append(p);
+  }
+
+  for(const issue of issues){
+    const p = document.createElement('p');
+    p.className = `note ${issue.level === 'error' ? 'error' : 'warning'}`;
+    const title = document.createElement('strong');
+    title.textContent = t(`diag.kind_${issue.kind}`);
+    p.append(title, document.createTextNode(' '));
+    p.append(document.createTextNode(t('diag.letters', { letters: issue.letters.join(' ') })));
+    const detail = document.createElement('div');
+    detail.className = 'diag-detail';
+    detail.textContent = issue.detail;
+    p.append(detail);
+    box.append(p);
+  }
+
+  // 白黒にしたときに見分けにくい組
+  const alike = findLookAlikes(map);
+  const p = document.createElement('p');
+  p.className = alike.length ? 'note warning' : 'note';
+  if(alike.length){
+    const title = document.createElement('strong');
+    title.textContent = t('diag.kind_lookAlike');
+    p.append(title, document.createTextNode(' '));
+    p.append(document.createTextNode(alike.map((x) => `${x.a}${x.emojiA}／${x.b}${x.emojiB}`).join('  ')));
+  }else{
+    p.textContent = t('diag.lookAlike_none');
+  }
+  box.append(p);
+
+  const note = document.createElement('p');
+  note.className = 'muted';
+  note.textContent = t('diag.env_note');
+  box.append(note);
+}
+
+/* ============================================
+ * Hidden Channel - 見えない文字を調べる
+ * ============================================ */
+
+/** 調べた結果を描く */
+function renderHiddenScan(){
+  const box = EL('hidden-result');
+  box.replaceChildren();
+  const text = EL('hidden-input').value || '';
+  if(!text){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('hidden.need_input');
+    box.append(p);
+    return;
+  }
+  const r = HiddenChannel.scan(text);
+
+  const head = document.createElement('p');
+  head.className = r.total ? 'note warning' : 'note success';
+  head.textContent = r.total
+    ? t('hidden.found', { count: r.total })
+    : t('hidden.none');
+  box.append(head);
+  if(!r.total) return;
+
+  const list = document.createElement('ul');
+  for(const [kind, count] of Object.entries(r.counts)){
+    if(!count) continue;
+    const li = document.createElement('li');
+    li.textContent = t(`hidden.kind_${kind}`, { count });
+    list.append(li);
+  }
+  box.append(list);
+
+  const visible = document.createElement('p');
+  visible.textContent = t('hidden.visible', { text: r.cleaned });
+  box.append(visible);
+
+  // 仕込まれたバイト列として読んでみる
+  const pay = HiddenChannel.extractPayload(text);
+  if(pay.bytes.length){
+    const p = document.createElement('p');
+    p.className = 'note';
+    const title = document.createElement('strong');
+    title.textContent = t('hidden.payload_title');
+    p.append(title);
+    const body = document.createElement('div');
+    body.className = 'mono';
+    body.textContent = pay.valid && pay.text.trim()
+      ? pay.text
+      : t('hidden.payload_unreadable', { bytes: pay.bytes.length });
+    p.append(body);
+    if(pay.usedPresentationSelector){
+      const warn = document.createElement('div');
+      warn.className = 'muted';
+      warn.textContent = t('hidden.payload_ambiguous');
+      p.append(warn);
+    }
+    box.append(p);
+  }
+}
+
+/** 見えない文字の画面をつなぐ */
+function initHiddenTab(){
+  if(!document.getElementById('hidden-input')) return;
+  EL('hidden-scan').addEventListener('click', renderHiddenScan);
+  EL('hidden-strip').addEventListener('click', ()=>{
+    EL('hidden-input').value = HiddenChannel.strip(EL('hidden-input').value || '');
+    renderHiddenScan();
+  });
+  EL('hidden-demo').addEventListener('click', ()=>{
+    EL('hidden-input').value = HiddenChannel.embed('😀', t('hidden.demo_secret'));
+    renderHiddenScan();
+  });
+}
+
 /**
  * URLパラメーターから設定を復元
  */
@@ -915,6 +1100,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // 解読タブ
   initCrackTab();
+
+  // 見えない文字を調べる
+  initHiddenTab();
+
+  // 置換表の点検
+  if(document.getElementById('diag-run')){
+    EL('diag-run').addEventListener('click', renderDiagnose);
+  }
 
   // カスタムマップ初期化
   CustomMap.init();

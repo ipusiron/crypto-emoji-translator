@@ -758,3 +758,29 @@ input[type="checkbox"], input[type="radio"]{
   .freq-count{grid-area:count}
   .freq-assign{grid-area:assign}
 }
+
+/* 置換表の点検・見えない文字を調べる */
+.diag-result, .hidden-result{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.diag-detail{
+  margin-top:6px;
+  font-size:20px;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
+.hidden-result ul{
+  margin:0;
+  padding-left:1.4em;
+}
+.hidden-result .mono{
+  margin-top:6px;
+  padding:8px 10px;
+  background:var(--fg);
+  border:1px solid var(--border);
+  border-radius:6px;
+  overflow-wrap:anywhere;
+}

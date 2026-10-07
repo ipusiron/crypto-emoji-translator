@@ -25,6 +25,8 @@ export function modules() {
   load('js/modes/binaryhex.js');
   load('js/modes/bytes.js');
   load('js/modes/cryptanalysis.js');
+  load('js/modes/diagnose.js');
+  load('js/modes/hidden.js');
   return globalThis;
 }
 

@@ -537,3 +537,125 @@ test('それらしさは、伏せ字や空白をまたいだ組を数えない',
   assert.equal(r2.pairs, 2);
   assert.equal(r2.hits, 2, 'TH と HE を数えていない');
 });
+
+// ---- 置換表の点検
+
+test('いまの4セットは、復号で壊れる絵文字を含まない', () => {
+  for (const set of EmojiSets) {
+    const map = {};
+    LETTERS.forEach((L, i) => { map[L] = set.items[i]; });
+    const r = Diagnose.check(map);
+    const errors = r.issues.filter((i) => i.level === 'error');
+    assert.deepEqual(errors, [], `${set.id}: ${errors.map((e) => e.kind).join(',')}`);
+    assert.equal(r.ok, true);
+    assert.equal(r.checked, 26);
+  }
+});
+
+test('weather セットは「セレクターが要る」と指摘される', () => {
+  // このツールが実際に躓いた箇所。14文字が U+FE0F を必要とする
+  const map = {};
+  LETTERS.forEach((L, i) => { map[L] = EmojiSets.find((s) => s.id === 'weather').items[i]; });
+  const issue = Diagnose.check(map).issues.find((i) => i.kind === 'needsSelector');
+  assert.ok(issue, '指摘が出ていない');
+  assert.equal(issue.letters.length, 14);
+  assert.equal(issue.level, 'warn');
+});
+
+test('ZWJ・重複・欠けは error として指摘する', () => {
+  const map = {};
+  LETTERS.forEach((L, i) => { map[L] = EmojiSets[0].items[i]; });
+  map.A = '👨‍👩‍👧';
+  map.C = map.D;
+  delete map.Z;
+  const r = Diagnose.check(map);
+  assert.equal(r.ok, false);
+  const kinds = r.issues.filter((i) => i.level === 'error').map((i) => i.kind).sort();
+  assert.deepEqual(kinds, ['duplicate', 'missing', 'zwj']);
+});
+
+test('肌の色の修飾子は warn として指摘する', () => {
+  const map = {};
+  LETTERS.forEach((L, i) => { map[L] = EmojiSets[3].items[i]; });
+  map.A = '👍🏽';
+  const issue = Diagnose.check(map).issues.find((i) => i.kind === 'skinTone');
+  assert.ok(issue);
+  assert.deepEqual(issue.letters, ['A']);
+});
+
+test('コードポイントが続く組を指摘する（色でしか見分けられない）', () => {
+  const map = {};
+  LETTERS.forEach((L, i) => { map[L] = EmojiSets.find((s) => s.id === 'shapes').items[i]; });
+  const issue = Diagnose.check(map).issues.find((i) => i.kind === 'adjacentRun');
+  assert.ok(issue, '連続した組の指摘が出ていない');
+  assert.ok(issue.letters.length >= 6);
+});
+
+test('絵文字1つを調べると、コードポイントと性質が返る', () => {
+  assert.deepEqual(Diagnose.inspectOne('🍎').codepoints, ['U+1F34E']);
+  const sun = Diagnose.inspectOne('☀️');
+  assert.deepEqual(sun.codepoints, ['U+2600', 'U+FE0F']);
+  assert.equal(sun.graphemes, 1);
+  assert.equal(sun.hasVariationSelector, true);
+  assert.equal(sun.needsSelector, true, 'U+2600 は Emoji_Presentation=No');
+  assert.equal(Diagnose.inspectOne('⬜').needsSelector, false, 'U+2B1C は Yes');
+  assert.equal(Diagnose.inspectOne('👨‍👩‍👧').hasZwj, true);
+  assert.equal(Diagnose.inspectOne('👍🏽').hasSkinTone, true);
+});
+
+// ---- 見えない文字の検出
+
+test('異体字セレクターに載せたバイト列を見つけて読む', () => {
+  const secret = 'secret message';
+  const carried = HiddenChannel.embed('😀', secret);
+  // 見た目は絵文字1つ
+  assert.equal(Graphemes.split(carried).length, 1);
+  assert.ok([...carried].length > 10, 'コードポイントは増えている');
+
+  const scan = HiddenChannel.scan(carried);
+  assert.equal(scan.cleaned, '😀');
+  assert.equal(scan.total, new TextEncoder().encode(secret).length);
+
+  const pay = HiddenChannel.extractPayload(carried);
+  assert.equal(pay.text, secret);
+  assert.equal(pay.valid, true);
+});
+
+test('256バイトすべてを載せて取り出せる', () => {
+  for (let b = 0; b < 256; b++) {
+    assert.equal(HiddenChannel.selectorToByte(HiddenChannel.byteToSelector(b)), b, `バイト ${b}`);
+  }
+  // 範囲の外は null
+  assert.equal(HiddenChannel.selectorToByte(0x41), null);
+});
+
+test('ゼロ幅文字とタグ文字も見つける', () => {
+  const r = HiddenChannel.scan('a​b‍c﻿d⁠');
+  assert.equal(r.counts.zeroWidth, 4);
+  assert.equal(r.cleaned, 'abcd');
+  assert.equal(HiddenChannel.kindOf(0xE0041), 'tag');
+  assert.equal(HiddenChannel.kindOf(0x41), null);
+});
+
+test('ふつうの絵文字の U+FE0F は、仕込みと区別がつかないことを知らせる', () => {
+  // ☀️ は表示指定として U+FE0F を持つ。これは Paul Butler 方式のバイト15でもある
+  const r = HiddenChannel.scan('☀️');
+  assert.equal(r.counts.variationSelector, 1);
+  assert.equal(r.counts.variationSupplement, 0);
+  const pay = HiddenChannel.extractPayload('☀️');
+  assert.deepEqual(pay.bytes, [15]);
+  assert.equal(pay.usedPresentationSelector, true, '曖昧さを知らせていない');
+});
+
+test('見えない文字を取り除ける', () => {
+  const carried = HiddenChannel.embed('🍎', 'x');
+  assert.equal(HiddenChannel.strip(carried), '🍎');
+  assert.equal(HiddenChannel.strip('ふつうの文'), 'ふつうの文');
+});
+
+test('読めないバイト列は valid=false で返す', () => {
+  const broken = '😀' + String.fromCodePoint(HiddenChannel.byteToSelector(0xff));
+  const pay = HiddenChannel.extractPayload(broken);
+  assert.equal(pay.valid, false);
+  assert.deepEqual(pay.bytes, [0xff]);
+});

@@ -330,7 +330,9 @@ crypto-emoji-translator/
 │       ├── morse.js        # Morse code
 │       ├── binaryhex.js    # binary and hex
 │       ├── bytes.js        # byte mode (Base100: one UTF-8 byte, one emoji)
-│       └── cryptanalysis.js # breaking it by hand (frequencies, cribs, likelihood)
+│       ├── cryptanalysis.js # breaking it by hand (frequencies, cribs, likelihood)
+│       ├── diagnose.js      # checks a substitution table (broken emoji, lookalikes)
+│       └── hidden.js        # finds invisible characters (variation selectors, zero width)
 ├── test/                   # tests (run with node --test)
 │   ├── load.js             # loads the same scripts the screen does, and builds the mapping
 │   ├── core.test.js        # the calculation layer (splitting, round trips, the tables, the edges)

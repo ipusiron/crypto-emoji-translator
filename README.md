@@ -374,7 +374,9 @@ crypto-emoji-translator/
 │       ├── morse.js        # モールス符号
 │       ├── binaryhex.js    # バイナリ・16進数
 │       ├── bytes.js        # バイト単位（Base100。UTF-8のバイト1つ＝絵文字1つ）
-│       └── cryptanalysis.js # 解読演習（頻度の集計・クリブの当てはめ・それらしさ）
+│       ├── cryptanalysis.js # 解読演習（頻度の集計・クリブの当てはめ・それらしさ）
+│       ├── diagnose.js      # 置換表の点検（壊れる絵文字・読み違えやすい組）
+│       └── hidden.js        # 見えない文字の検出（異体字セレクター・ゼロ幅文字）
 ├── test/                   # テスト（node --test で実行する）
 │   ├── load.js             # 画面と同じスクリプトの読み込みと、対応表の組み立て
 │   ├── core.test.js        # 計算部（グラフェム分割・各モードの往復・符号表・境界）
