@@ -590,6 +590,12 @@ function updateShareURL(){
     params.set('hchunk', EL('opt-hex-chunk').value);
   }else if(State.currentMode==='bytes'){
     params.set('ychunk', byteChunk());
+  }else if(State.currentMode==='custom'){
+    // カスタムマップそのものを載せる（A–Z の順に26個つなげるだけ）
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    if(letters.every((L)=>State.mapping26[L])){
+      params.set('cmap', letters.map((L)=>State.mapping26[L]).join(''));
+    }
   }
 
   const url = `${location.origin}${location.pathname}?${params.toString()}`;
@@ -694,10 +700,32 @@ function renderCrackPlain(){
   const cipher = crackCipher();
   const { text, solved, total } = Cryptanalysis.apply(cipher, crackAssignment);
   EL('crack-plain').textContent = text;
+  renderCrackDifficulty(total);
   const lk = Cryptanalysis.likelihood(cipher, crackAssignment);
   EL('crack-stats').textContent = total
     ? t('crack.stats', { solved, total, score: (lk.score * 100).toFixed(0) })
     : '';
+}
+
+/**
+ * いまの暗号文が、どれくらいの長さなら鍵が1つに決まるかの目安を出す
+ * @param {number} length - 暗号文の記号数
+ */
+function renderCrackDifficulty(length){
+  const el = document.getElementById('crack-difficulty');
+  if(!el) return;
+  if(!length){ el.textContent = ''; return; }
+  const u = Cryptanalysis.unicityDistance('substitution');
+  const ratio = length / u.distance;
+  el.textContent = t('crack.difficulty', {
+    length,
+    keyspace: u.keyspace,
+    bits: u.keyBits.toFixed(0),
+    need: Math.ceil(u.distance),
+    verdict: t(ratio >= 2 ? 'crack.verdict_enough'
+      : ratio >= 1 ? 'crack.verdict_borderline'
+      : 'crack.verdict_short'),
+  });
 }
 
 /** クリブを当てはめられる位置を探して並べる */
@@ -1003,6 +1031,20 @@ function applyParams(){
   }else if(mode==='bytes'){
     const y = qs.get('ychunk');
     if(y && EL('opt-byte-chunk')) EL('opt-byte-chunk').value=y;
+  }else if(mode==='custom'){
+    const cm = qs.get('cmap');
+    if(cm){
+      const parts = Graphemes.split(cm);
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      if(parts.length === 26 && new Set(parts).size === 26){
+        const map = {};
+        letters.forEach((L,i)=>{ map[L] = parts[i]; });
+        State.mapping26 = map;
+        renderVisualizerGrid();
+      }else{
+        showToast(t('toast.cmap_invalid', { count: parts.length }));
+      }
+    }
   }
 }
 

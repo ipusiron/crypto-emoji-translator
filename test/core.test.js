@@ -659,3 +659,65 @@ test('読めないバイト列は valid=false で返す', () => {
   assert.equal(pay.valid, false);
   assert.deepEqual(pay.bytes, [0xff]);
 });
+
+// ---- 見分けやすいセット（カ）
+
+test('Distinct セットは、設計の条件を3つとも満たす', () => {
+  const set = EmojiSets.find((s) => s.id === 'distinct');
+  assert.ok(set, 'Distinct セットが無い');
+  assert.equal(set.items.length, 26);
+  assert.equal(new Set(set.items).size, 26);
+
+  // 1) 異体字セレクターが要らない（1コードポイントで絵文字になる）
+  for (const e of set.items) {
+    assert.equal([...e].length, 1, `${e} が1コードポイントでない`);
+    assert.match(e, /\p{Emoji_Presentation}/u, `${e} はセレクターが要る`);
+  }
+
+  // 2) コードポイントが隣り合わない
+  const cps = set.items.map((e) => e.codePointAt(0)).sort((a, b) => a - b);
+  for (let i = 1; i < cps.length; i++) {
+    assert.notEqual(cps[i], cps[i - 1] + 1,
+      `${String.fromCodePoint(cps[i - 1])} と ${String.fromCodePoint(cps[i])} が隣り合っている`);
+  }
+
+  // 3) 点検で warn も error も出ない
+  const map = {};
+  LETTERS.forEach((L, i) => { map[L] = set.items[i]; });
+  const r = Diagnose.check(map);
+  assert.deepEqual(r.issues, [], r.issues.map((i) => `${i.kind}:${i.detail}`).join(' / '));
+});
+
+test('Distinct セットでも、すべてのモードが往復する', () => {
+  const map = mappingOf('distinct');
+  const plain = LETTERS.join('');
+  assert.equal(Caesar.decodeFromEmoji(Caesar.encodeToEmoji(plain, 9, map), 9, map), plain);
+  assert.equal(Vigenere.decodeFromEmoji(Vigenere.encodeToEmoji(plain, 'KEY', map), 'KEY', map), plain);
+});
+
+// ---- 解読難易度の目安（ク）
+
+test('一意復号距離が、教科書の値になる', () => {
+  // 単一換字は 26! 通り ≒ 88.4 bit。英語の冗長度 3.2 bit/文字 で割って約28文字
+  const sub = Cryptanalysis.unicityDistance('substitution');
+  assert.equal(sub.keyspace, '26!');
+  assert.ok(Math.abs(sub.keyBits - 88.38) < 0.1, `鍵の情報量が ${sub.keyBits}`);
+  assert.ok(Math.abs(sub.distance - 27.6) < 0.5, `一意復号距離が ${sub.distance}`);
+
+  // シーザーは 26 通り ≒ 4.7 bit → 約1.5文字
+  const caesar = Cryptanalysis.unicityDistance('caesar');
+  assert.equal(caesar.keyspace, '26');
+  assert.ok(Math.abs(caesar.distance - 1.47) < 0.1, `${caesar.distance}`);
+
+  // ヴィジュネルは鍵の長さで変わる
+  const v5 = Cryptanalysis.unicityDistance('vigenere', 5);
+  assert.equal(v5.keyspace, '26^5');
+  assert.ok(v5.distance > caesar.distance * 4, '鍵が長いほど伸びる');
+  assert.ok(Cryptanalysis.unicityDistance('vigenere', 10).distance > v5.distance);
+});
+
+test('log2(n!) が正しい', () => {
+  assert.equal(Cryptanalysis.log2Factorial(1), 0);
+  assert.ok(Math.abs(Cryptanalysis.log2Factorial(2) - 1) < 1e-9);
+  assert.ok(Math.abs(Cryptanalysis.log2Factorial(4) - Math.log2(24)) < 1e-9);
+});

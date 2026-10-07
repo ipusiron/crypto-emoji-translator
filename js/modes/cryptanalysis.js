@@ -179,8 +179,50 @@ const Cryptanalysis = (()=>{
     return { plain: p, cipher: c, same: p.length === c.length && p.every((v, i) => v === c[i]) };
   }
 
+  /**
+   * 英語の冗長度（bit/文字）の目安
+   * Shannon "Prediction and Entropy of Printed English" (1951) が示した
+   * 1文字あたりのエントロピー（約1.0〜1.5 bit）と、26文字を等確率で並べたときの
+   * log2(26)≈4.7 bit との差。暗号の教科書はおおむね 3.2 を使う
+   */
+  const ENGLISH_REDUNDANCY = 3.2;
+
+  /** log2(n!) */
+  function log2Factorial(n){
+    let s = 0;
+    for(let i = 2; i <= n; i++) s += Math.log2(i);
+    return s;
+  }
+
+  /**
+   * 一意復号距離（unicity distance）の目安
+   * 「暗号文がこれだけあれば、正しい鍵が1つに決まる」と見込まれる長さ。
+   * U = H(K) / D （H(K) は鍵の情報量、D は平文の冗長度）
+   *
+   * @param {string} mode - 'caesar' / 'vigenere' / 'substitution'
+   * @param {number} [keyLength] - ヴィジュネルの鍵の長さ
+   * @returns {{keyBits:number, distance:number, keyspace:string}}
+   */
+  function unicityDistance(mode, keyLength){
+    let keyBits;
+    let keyspace;
+    if(mode === 'caesar'){
+      keyBits = Math.log2(26);
+      keyspace = '26';
+    }else if(mode === 'vigenere'){
+      const n = Math.max(1, keyLength || 1);
+      keyBits = n * Math.log2(26);
+      keyspace = `26^${n}`;
+    }else{
+      keyBits = log2Factorial(26);
+      keyspace = '26!';
+    }
+    return { keyBits, distance: keyBits / ENGLISH_REDUNDANCY, keyspace };
+  }
+
   return {
     ENGLISH_FREQ, ENGLISH_BIGRAMS, LETTERS,
+    ENGLISH_REDUNDANCY, log2Factorial, unicityDistance,
     frequency, guessByFrequency, apply, cribPositions, likelihood, validate, compareShape,
   };
 })();

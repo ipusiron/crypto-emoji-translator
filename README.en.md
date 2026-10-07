@@ -153,7 +153,7 @@ In that case there is no "encipher, then substitute" in two steps:
 
 ## 🎨 Emoji sets
 
-Four preset sets are included, 26 emoji each.
+Five preset sets are included, 26 emoji each.
 
 | Set | What it is | First twelve |
 |---------|------|---------------|
@@ -161,8 +161,10 @@ Four preset sets are included, 26 emoji each.
 | **Shapes** | Shapes | 🔴🟠🟡🟢🔵🟣⚫⚪🟥🟧🟨🟩 |
 | **Weather** | Weather | ☀️⛅☁️🌧️⛈️🌩️🌨️🌪️🌫️🌈❄️💧 |
 | **Animals** | Animals | 🐭🐱🐶🐻🐼🐨🐯🦁🐷🐸🐵🐔 |
+| **Distinct** | Chosen to be easy to tell apart | ⌛⚓⚡⚽⭐🌈🌙🌲🌻🍄🍇🍎 |
 
 - Selecting a set previews its first twelve emoji.
+- **Distinct** holds only emoji that (1) need no variation selector, (2) do not sit on consecutive code points (such runs are colour variants of one shape), and (3) spread across different kinds of shape. The check on the settings tab shows how it differs from the other sets.
 - The sets are used by the Caesar and Vigenère modes.
 - To add your own, append to `js/emoji-sets.js` (26 items, no duplicates — the tests enforce both).
 
