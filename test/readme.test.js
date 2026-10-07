@@ -74,9 +74,13 @@ test('変換モードの説明が実装と合っている', () => {
   assert.ok(readme.includes('⓿➊➋…🅕'), '16進数の絵文字が README と違う');
   assert.equal(BinaryHex.HEX[0], '⓿');
   assert.equal(BinaryHex.HEX[15], '🅕');
-  // モールスは A–Z と 0–9 だけ、という記述を裏づける
-  assert.ok(readme.includes('モールス符号は A–Z と 0–9 だけに対応しています'));
-  assert.equal(Object.keys(Morse.MAP).length, 36);
+  // 符号表の件数と、欧文・和文のあいだの衝突の数を README と突き合わせる
+  const intl = Object.keys(Morse.TABLES.international).length;
+  const wabun = Object.keys(Morse.TABLES.wabun).length;
+  const clash = Morse.collisions().length;
+  assert.ok(readme.includes(`ITU-R M.1677-1、${intl}項目`), `欧文の件数が README と違う（${intl}）`);
+  assert.ok(readme.includes(`別表第一号、${wabun}項目`), `和文の件数が README と違う（${wabun}）`);
+  assert.ok(readme.includes(`両者は${clash}個の符号が重なる`), `衝突の数が README と違う（${clash}）`);
 });
 
 test('共有URLの例が、いまのパラメーターで動く形になっている', () => {

@@ -144,6 +144,15 @@ const i18n = {
     'footer.text': '🔗 GitHubリポジトリーはこちら（',
     'footer.link': 'ipusiron/crypto-emoji-translator',
     'footer.close': '）',
+    'mode.morse_variant': '符号表',
+    'mode.morse_variant_help': '欧文はITU-R M.1677-1、和文は無線局運用規則の別表第一号。両者は31個の符号が重なるため、どちらで読むかを決めないと元の文字は一意に決まりません。',
+    'mode.morse_intl': '欧文（ITU-R M.1677-1）',
+    'mode.morse_wabun': '和文（無線局運用規則 別表第一号）',
+    'hint.morse_encode': 'モールス符号 → 絵文字（{variant}。⚫＝短点、⚪＝長点）',
+    'hint.morse_decode': '絵文字 → モールス符号 → テキスト（{variant}）',
+    'toast.morse_dropped': '⚠️ 符号表にない文字を{count}個落としました: {chars}',
+    'toast.morse_unknown': '⚠️ 符号表にない符号が{count}個ありました（? で示しています）',
+
     'ui.help': '説明を表示',
 
     // 短い知らせ（トースト・状態表示）
@@ -308,6 +317,15 @@ const i18n = {
     'footer.text': '🔗 GitHub Repository: ',
     'footer.link': 'ipusiron/crypto-emoji-translator',
     'footer.close': '',
+    'mode.morse_variant': 'Code table',
+    'mode.morse_variant_help': 'International is ITU-R M.1677-1; Wabun is the table in the Japanese radio regulations. 31 codes mean different things in the two tables, so the original text is not recoverable unless you say which one to read with.',
+    'mode.morse_intl': 'International (ITU-R M.1677-1)',
+    'mode.morse_wabun': 'Wabun (Japanese radio regulations)',
+    'hint.morse_encode': 'Morse → emoji ({variant}; ⚫ dot, ⚪ dash)',
+    'hint.morse_decode': 'Emoji → Morse → text ({variant})',
+    'toast.morse_dropped': '⚠️ Dropped {count} character(s) that are not in the table: {chars}',
+    'toast.morse_unknown': '⚠️ {count} code(s) were not in the table (shown as ?)',
+
     'ui.help': 'Show the explanation',
 
     // Short notices (toasts and statuses)

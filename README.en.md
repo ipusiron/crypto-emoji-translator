@@ -122,7 +122,7 @@ In that case there is no "encipher, then substitute" in two steps:
 
 - **Caesar → emoji**: pick a shift (0–25) and encode or decode
 - **Vigenère → emoji**: pick a key (letters) and encode or decode
-- **Morse ↔ emoji**: ⚫ (dot) and ⚪ (dash), with ⏹ between letters and ⏸ between words (both directions)
+- **Morse ↔ emoji**: ⚫ (dot) and ⚪ (dash), with ⏹ between letters and ⏸ between words. **The international and Wabun tables can be switched** (both directions)
 - **Binary ↔ emoji**: the UTF-8 bytes in binary, as ⬜ (0) and ⬛ (1) (both directions)
 - **Hex ↔ emoji**: the UTF-8 bytes in hex, as ⓿➊➋…🅕 (both directions)
 - **Custom map**: build and save your own A–Z → 26 emoji mapping
@@ -229,7 +229,7 @@ https://ipusiron.github.io/crypto-emoji-translator/?mode=caesar&set=foods&shift=
 - Very long input makes the browser work hard (roughly 5,000 characters).
 - **The same emoji looks different on different devices and fonts.** The standard allows this (UTS #51: "The shape of the character can vary significantly"). What carries the information is the sequence of code points, not the picture, so decoding is unaffected.
 - **ZWJ sequences (👨‍👩‍👧 and the like) are not used in the tables.** `👨‍👩‍👧` (one character to a reader) and `👨👩👧` (three) would produce the same symbol string, so **the reverse direction would not be unique**.
-- **Morse covers A–Z and 0–9 only.** The punctuation ITU-R M.1677-1 defines (`.` `,` `?` and 17 more) and Japanese Wabun code (別表第一号 of the Japanese radio regulations) are not supported, and characters outside the table are dropped silently.
+- **Morse covers both the international table (ITU-R M.1677-1, 50 entries) and Wabun (別表第一号 of the Japanese radio regulations, 65 entries).** **44 codes mean different things in the two**, so the original text is not recoverable unless you say which table to read with. The multiplication sign is not in the table because ITU says to send X for it, and the procedural signals (Understood, Error and the rest) are left out because they have no character and some collide with letters. Characters outside the table are dropped, but **the screen says so**.
 
 ---
 

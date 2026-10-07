@@ -158,9 +158,19 @@ function mountModeOptions(){
         <input id="opt-key" type="text" value="LEMON"/>
       </div>`;
   }
-  // Morse: 追加オプションなし
+  // Morse: 符号表（欧文／和文）を選ぶ
   else if(mode==='morse'){
-    // No additional options for Morse mode
+    container.innerHTML = `
+      <div class="row">
+        <label for="opt-morse-variant">
+          <span data-i18n="mode.morse_variant">符号表</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.morse_variant_help')}">?</button>
+        </label>
+        <select id="opt-morse-variant">
+          <option value="international" data-i18n="mode.morse_intl">欧文（ITU-R M.1677-1）</option>
+          <option value="wabun" data-i18n="mode.morse_wabun">和文（無線局運用規則 別表第一号）</option>
+        </select>
+      </div>`;
   }
   // Binary: チャンク区切り選択
   else if(mode==='binary'){
@@ -278,6 +288,32 @@ function normalizeInput(str){
  * エンコード/デコード処理
  * ============================================ */
 
+/** いま選ばれているモールスの符号表 */
+function morseVariant(){
+  const el = document.getElementById('opt-morse-variant');
+  return (el && el.value === 'wabun') ? 'wabun' : 'international';
+}
+
+/**
+ * 符号表に無くて落とした文字を知らせる
+ * 黙って消すと「変換できた」と誤解されるため
+ * @param {string[]} dropped
+ */
+function noteDropped(dropped){
+  if(!dropped || !dropped.length) return;
+  const uniq = [...new Set(dropped)].slice(0, 12).join(' ');
+  showToast(t('toast.morse_dropped', { chars: uniq, count: dropped.length }));
+}
+
+/**
+ * 符号表に無かった符号を知らせる
+ * @param {string[]} unknown
+ */
+function noteUnknown(unknown){
+  if(!unknown || !unknown.length) return;
+  showToast(t('toast.morse_unknown', { count: unknown.length }));
+}
+
 /**
  * 現在のモードとオプションに応じてエンコード実行
  */
@@ -296,8 +332,13 @@ function encodeCurrent(){
     out = Vigenere.encodeToEmoji(normalizeInput(input), key, set);
     hint = `Vigenère / key=${key}`;
   }else if(mode==='morse'){
-    out = Morse.encodeToEmoji(normalizeInput(input));
-    hint = `Morse to Emoji（⚫=dot, ⚪=dash）`;
+    const variant = morseVariant();
+    // 和文は大文字化・記号削除の対象にしないので、整形せずそのまま渡す
+    const src = (variant==='wabun') ? input : normalizeInput(input);
+    const r = Morse.encode(src, variant);
+    out = r.emoji;
+    hint = t('hint.morse_encode', { variant: t(`mode.morse_${variant==='wabun'?'wabun':'intl'}`) });
+    noteDropped(r.dropped);
   }else if(mode==='binary'){
     const chunk = EL('opt-bin-chunk').value;
     out = BinaryHex.encodeBinaryToEmoji(input, chunk);
@@ -332,8 +373,11 @@ function decodeCurrent(){
     out = Vigenere.decodeFromEmoji(input, key, set);
     hint = `Decode Vigenère / key=${key}`;
   }else if(mode==='morse'){
-    out = Morse.decodeFromEmoji(input);
-    hint = `Emoji to Morse/Text`;
+    const variant = morseVariant();
+    const r = Morse.decode(input, variant);
+    out = r.text;
+    hint = t('hint.morse_decode', { variant: t(`mode.morse_${variant==='wabun'?'wabun':'intl'}`) });
+    noteUnknown(r.unknown);
   }else if(mode==='binary'){
     out = BinaryHex.decodeBinaryFromEmoji(input);
     hint = `Emoji to Binary → Text`;
@@ -434,7 +478,7 @@ function newPractice(){
   const toEmoji = {
     caesar: (s)=> Caesar.encodeToEmoji(s, 3, State.mapping26),
     vigenere: (s)=> Vigenere.encodeToEmoji(s, 'LEMON', State.mapping26),
-    morse: (s)=> Morse.encodeToEmoji(s),
+    morse: (s)=> Morse.encodeToEmoji(s, 'international'),
     binary: (s)=> BinaryHex.encodeBinaryToEmoji(s, '8'),
     hex: (s)=> BinaryHex.encodeHexToEmoji(s, '2'),
   }[mode];
@@ -504,6 +548,8 @@ function updateShareURL(){
     params.set('shift', EL('opt-shift').value);
   }else if(State.currentMode==='vigenere'){
     params.set('key', (EL('opt-key').value||'').toUpperCase());
+  }else if(State.currentMode==='morse'){
+    params.set('mvar', morseVariant());
   }else if(State.currentMode==='binary'){
     params.set('bchunk', EL('opt-bin-chunk').value);
   }else if(State.currentMode==='hex'){
@@ -544,6 +590,9 @@ function applyParams(){
   // モード別パラメーター
   if(mode==='caesar'){
     const sh = qs.get('shift'); if(sh) EL('opt-shift').value = sh;
+  }else if(mode==='morse'){
+    const mv = qs.get('mvar');
+    if(mv && EL('opt-morse-variant')) EL('opt-morse-variant').value = mv;
   }else if(mode==='vigenere'){
     const k = qs.get('key'); if(k) EL('opt-key').value = k;
   }else if(mode==='binary'){

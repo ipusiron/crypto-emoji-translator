@@ -221,3 +221,107 @@ test('知らない絵文字は読み飛ばす・そのまま残す', () => {
   assert.equal(Caesar.decodeFromEmoji('🚀', 0, map), '🚀', 'シーザーはそのまま残す');
   assert.equal(BinaryHex.decodeBinaryFromEmoji('🚀'), '', 'バイナリは読み飛ばす');
 });
+
+// ---- モールス（欧文と和文）
+
+test('どちらの符号表にも、表のなかの衝突がない', () => {
+  for (const variant of Morse.VARIANTS) {
+    const table = Morse.TABLES[variant];
+    const seen = new Map();
+    for (const [ch, code] of Object.entries(table)) {
+      assert.ok(!seen.has(code), `${variant}: ${code} が ${seen.get(code)} と ${ch} で重複`);
+      seen.set(code, ch);
+      assert.match(code, /^[.-]+$/, `${variant}: ${ch} の符号が点と線でない`);
+    }
+  }
+});
+
+test('欧文の表は ITU-R M.1677-1 の記号も持つ', () => {
+  // Annex 1 Part I, 1.1.3 Punctuation marks and miscellaneous signs
+  const ITU_PUNCT = {
+    '.': '.-.-.-', ',': '--..--', ':': '---...', '?': '..--..', "'": '.----.',
+    '-': '-....-', '/': '-..-.', '(': '-.--.', ')': '-.--.-', '"': '.-..-.',
+    '=': '-...-', '+': '.-.-.', '@': '.--.-.',
+  };
+  for (const [ch, code] of Object.entries(ITU_PUNCT)) {
+    assert.equal(Morse.TABLES.international[ch], code, `${ch} の符号が違う`);
+  }
+  // accented e（1.1.1）
+  assert.equal(Morse.TABLES.international['É'], '..-..');
+  // 乗算記号は X と同じ符号なので入れない（ITU 3.2.1「X を送る」）
+  assert.equal(Morse.TABLES.international['×'], undefined);
+  // 業務記号は文字を持たず、一部は文字と衝突するので入れない
+  assert.equal(Morse.REVERSE.international['-.-'], 'K', 'Invitation to transmit を入れてしまっている');
+});
+
+test('和文の表は無線局運用規則 別表第一号と合っている', () => {
+  // 別表第一号 1 和文 一 文字（抜粋）
+  const WABUN = {
+    イ: '.-', ロ: '.-.-', ハ: '-...', ニ: '-.-.', ホ: '-..', ヘ: '.',
+    ン: '.-.-.', ム: '-', ラ: '...',
+    '゙': '..',      // 濁点
+    '゚': '..--.',   // 半濁点
+    'ー': '.--.-',        // 長音
+    '、': '.-.-.-',       // 区切点
+  };
+  for (const [ch, code] of Object.entries(WABUN)) {
+    assert.equal(Morse.TABLES.wabun[ch], code, `${ch} の符号が違う`);
+  }
+  // 数字は欧文と同じ
+  for (const d of '0123456789') {
+    assert.equal(Morse.TABLES.wabun[d], Morse.TABLES.international[d], `${d} が欧文と違う`);
+  }
+});
+
+test('欧文と和文は符号が衝突するので、表を指定しないと決まらない', () => {
+  const clash = Morse.collisions();
+  assert.ok(clash.length > 30, `衝突が ${clash.length} 件しかない`);
+  // 代表例を名指しで押さえる
+  const byCode = new Map(clash.map((c) => [c.code, c]));
+  assert.deepEqual(byCode.get('-'), { code: '-', international: 'T', wabun: 'ム' });
+  assert.deepEqual(byCode.get('.-'), { code: '.-', international: 'A', wabun: 'イ' });
+  // 同じ絵文字列が、表によって別の文字に戻る
+  const emoji = Morse.encode('A', 'international').emoji;
+  assert.equal(Morse.decode(emoji, 'international').text, 'A');
+  assert.equal(Morse.decode(emoji, 'wabun').text, 'イ');
+});
+
+test('欧文は記号つきで往復する', () => {
+  for (const text of ['HELLO, WORLD.', 'WHO? ME!', 'A=B+C', 'E@MAIL.COM']) {
+    const r = Morse.encode(text, 'international');
+    const back = Morse.decode(r.emoji, 'international');
+    // 表にない文字（! など）は落ちるので、落とした分を除いて比べる
+    const expected = [...text.toUpperCase()].filter((c) => !/\s/.test(c) && !r.dropped.includes(c));
+    const got = [...back.text].filter((c) => !/\s/.test(c));
+    assert.deepEqual(got, expected, `${text} が戻らない`);
+  }
+});
+
+test('表にない文字は落とし、落としたことを返す', () => {
+  const r = Morse.encode('HELLO, WORLD!', 'international');
+  assert.deepEqual(r.dropped, ['!'], '落とした文字を返していない');
+  assert.equal(Morse.decode(r.emoji, 'international').text, 'HELLO, WORLD');
+});
+
+test('和文は、ひらがな・濁音・小書きを扱って往復する', () => {
+  assert.equal(Morse.decode(Morse.encode('こんにちは', 'wabun').emoji, 'wabun').text, 'コンニチハ');
+  assert.equal(Morse.decode(Morse.encode('ガギグ', 'wabun').emoji, 'wabun').text, 'ガギグ', '濁点が戻らない');
+  assert.equal(Morse.decode(Morse.encode('パピプ', 'wabun').emoji, 'wabun').text, 'パピプ', '半濁点が戻らない');
+  // 小書きの仮名は、和文モールスでは並の大きさで送る（別表第一号に小書きがない）
+  assert.equal(Morse.decode(Morse.encode('トウキョウ', 'wabun').emoji, 'wabun').text, 'トウキヨウ');
+  assert.equal(Morse.decode(Morse.encode('ラーメン、スシ', 'wabun').emoji, 'wabun').text, 'ラーメン、スシ');
+});
+
+test('知らない符号は ? にして、件数を返す', () => {
+  // ⚫が9個の符号は、どちらの表にもない
+  const bogus = '⚫'.repeat(9);
+  const r = Morse.decode(bogus, 'international');
+  assert.equal(r.text, '?');
+  assert.equal(r.unknown.length, 1);
+  assert.equal(r.unknown[0], '.'.repeat(9));
+});
+
+test('旧来の呼び出し方も動く', () => {
+  assert.equal(Morse.encodeToEmoji('SOS'), '⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫');
+  assert.equal(Morse.decodeFromEmoji('⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫'), 'SOS');
+});
