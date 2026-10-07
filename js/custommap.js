@@ -10,7 +10,7 @@ const CustomMap = (()=>{
       const div = document.createElement('div');
       div.className='slot';
       div.dataset.letter = ch;
-      div.innerHTML = `<span class="label">${ch}</span><div class="emoji" droppable="true">—</div>`;
+      div.innerHTML = `<span class="label">${ch}</span><div class="emoji">—</div>`;
       slots.appendChild(div);
     }
 
@@ -70,11 +70,11 @@ const CustomMap = (()=>{
     // check duplication
     const used = Array.from(document.querySelectorAll('#alpha-slots .emoji')).map(e=>e.textContent);
     if(used.includes(emo)){
-      showStatus('その絵文字は既に割り当て済みです。', 'warning');
+      showStatus(t('custom.duplicate'), 'warning');
       return;
     }
     ev.currentTarget.textContent = emo;
-    showStatus('割り当てました。', 'success');
+    showStatus(t('custom.assigned'), 'success');
   }
 
   function showStatus(msg, type=''){
@@ -97,12 +97,12 @@ const CustomMap = (()=>{
   function validate(map){
     const letters = Array.from({length:26}, (_,i)=>String.fromCharCode(65+i));
     for(const L of letters){
-      if(!map[L]) return `未割当の文字があります: ${L}`;
+      if(!map[L]) return t('custom.unassigned', { letter: L });
     }
     // duplication check
     const vals = Object.values(map);
     const uniq = new Set(vals);
-    if(uniq.size !== vals.length) return '絵文字が重複しています。';
+    if(uniq.size !== vals.length) return t('custom.conflict');
     return null;
   }
 
@@ -111,7 +111,7 @@ const CustomMap = (()=>{
     const err = validate(map);
     if(err){ showStatus(err, 'error'); return; }
     localStorage.setItem('cet.custommap', JSON.stringify(map));
-    showStatus('保存しました（localStorage）。', 'success');
+    showStatus(t('custom.saved'), 'success');
     // use immediately
     State.mapping26 = map;
     renderVisualizerGrid();
@@ -119,7 +119,7 @@ const CustomMap = (()=>{
 
   function reset(){
     EL('alpha-slots').querySelectorAll('.emoji').forEach(e=>e.textContent='—');
-    showStatus('リセットしました。', 'success');
+    showStatus(t('custom.reset_done'), 'success');
   }
 
   function exportJSON(){
@@ -129,7 +129,7 @@ const CustomMap = (()=>{
     const text = JSON.stringify(map);
     EL('custom-json').value = text;
     navigator.clipboard.writeText(text);
-    showStatus('JSON をコピーしました。', 'success');
+    showStatus(t('custom.json_copied'), 'success');
   }
 
   function importJSON(){
@@ -141,9 +141,9 @@ const CustomMap = (()=>{
       applyMap(obj);
       localStorage.setItem('cet.custommap', JSON.stringify(obj));
       State.mapping26 = obj; renderVisualizerGrid();
-      showStatus('インポートしました。', 'success');
+      showStatus(t('custom.imported'), 'success');
     }catch(e){
-      showStatus('JSON が不正です。', 'error');
+      showStatus(t('custom.json_invalid'), 'error');
     }
   }
 

@@ -78,7 +78,7 @@ const i18n = {
     'learn.effects_positive': '効能',
     'learn.effect1': '<strong>見た目によるカモフラージュ</strong>：絵文字列は、一見すると暗号文だと気づかれない可能性がある。',
     'learn.effect2': '<strong>解読作業の手間増加</strong>：攻撃者は「絵文字をアルファベットに置換する」前処理が必要となる。',
-    'learn.effect3': '<strong>視認性の向上</strong>：モールス信号やバイナリ列のような単調な表現より学習効果が高い。',
+    'learn.effect3': '<strong>視認性の向上</strong>：モールス符号やバイナリ列のような単調な表現より学習効果が高い。',
     'learn.effect4': '<strong>教育的効果</strong>：暗号を「遊び」として直感的に体験でき、学習者の関心を引きやすい。',
     'learn.effects_negative': '限界',
     'learn.limit1': '<strong>人間にとっての識別困難性</strong>：絵文字は類似した形や色合いを区別するのが難しい。特に色覚異常のある人には識別困難がさらに増す。',
@@ -141,9 +141,27 @@ const i18n = {
     'settings.lang_en': 'English',
 
     // Footer
-    'footer.text': '🔗 GitHubリポジトリはこちら（',
+    'footer.text': '🔗 GitHubリポジトリーはこちら（',
     'footer.link': 'ipusiron/crypto-emoji-translator',
     'footer.close': '）',
+    'ui.help': '説明を表示',
+
+    // 短い知らせ（トースト・状態表示）
+    'toast.copied': '✅ コピーしました',
+    'toast.url_copied': '✅ URLをコピーしました',
+    'toast.copy_failed': '❌ コピーに失敗しました',
+    'toast.copy_unavailable': '❌ この環境ではコピーできません',
+
+    // Custom Map の状態表示
+    'custom.duplicate': 'その絵文字は既に割り当て済みです。',
+    'custom.assigned': '割り当てました。',
+    'custom.unassigned': '未割当の文字があります: {letter}',
+    'custom.conflict': '絵文字が重複しています。',
+    'custom.saved': '保存しました（localStorage）。',
+    'custom.reset_done': 'リセットしました。',
+    'custom.json_copied': 'JSON をコピーしました。',
+    'custom.imported': 'インポートしました。',
+    'custom.json_invalid': 'JSON が不正です。',
   },
 
   en: {
@@ -290,15 +308,50 @@ const i18n = {
     'footer.text': '🔗 GitHub Repository: ',
     'footer.link': 'ipusiron/crypto-emoji-translator',
     'footer.close': '',
+    'ui.help': 'Show the explanation',
+
+    // Short notices (toasts and statuses)
+    'toast.copied': '✅ Copied',
+    'toast.url_copied': '✅ URL copied',
+    'toast.copy_failed': '❌ Could not copy',
+    'toast.copy_unavailable': '❌ Copying is not available here',
+
+    // Custom Map statuses
+    'custom.duplicate': 'That emoji is already assigned.',
+    'custom.assigned': 'Assigned.',
+    'custom.unassigned': 'Some letters are unassigned: {letter}',
+    'custom.conflict': 'The same emoji is used twice.',
+    'custom.saved': 'Saved to localStorage.',
+    'custom.reset_done': 'Reset.',
+    'custom.json_copied': 'JSON copied.',
+    'custom.imported': 'Imported.',
+    'custom.json_invalid': 'That is not valid JSON.',
   }
 };
 
-function t(key) {
+/**
+ * 文言を引く
+ * @param {string} key
+ * @param {Object} [vars] - {name} を置き換える値
+ * @returns {string} 辞書に無ければキー名をそのまま返す
+ *
+ * 注: `||` で判定すると空文字（例: footer.close）が falsy になり、
+ *     英語表示でキー名が画面に出てしまう。undefined かどうかで見る。
+ */
+function t(key, vars) {
   const lang = State.currentLang || 'ja';
-  return i18n[lang][key] || key;
+  const dict = i18n[lang] || i18n.ja;
+  let template = dict[key];
+  if (template === undefined) template = i18n.ja[key];
+  if (template === undefined) return key;
+  if (!vars) return template;
+  return template.replace(/\{(\w+)\}/g, (m, name) => (vars[name] === undefined ? m : String(vars[name])));
 }
 
 function applyTranslations() {
+  // 読み上げの言語も切り替える
+  document.documentElement.lang = State.currentLang || 'ja';
+
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     const text = t(key);

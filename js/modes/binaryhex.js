@@ -1,6 +1,20 @@
-/* Binary & Hex mode */
+/* ============================================
+ * Binary & Hex mode
+ * バイナリ・16進数モジュール
+ * ============================================
+ *
+ * 入力を UTF-8 のバイト列にして、2進数または16進数の各桁を絵文字に置き換える。
+ *
+ * 0/1 に使う絵文字について:
+ *   もとは ◻️ ◼️（U+25FB / U+25FC ＋ U+FE0F）を使っていたが、この2つは
+ *   Unicode の Emoji_Presentation プロパティが No で、絵文字として表示させるには
+ *   異体字セレクター U+FE0F が要る＝2コードポイントになる。
+ *   そのためコードポイント単位で分けると割れ、復号が常に空文字になっていた。
+ *   ⬜ ⬛（U+2B1C / U+2B1B）は Emoji_Presentation が Yes で、
+ *   セレクターなしの1コードポイントで絵文字として表示される（UTS #51、emoji-data.txt）。
+ */
 const BinaryHex = (()=>{
-  const BIN0='◻️', BIN1='◼️'; // binary emoji for 0/1
+  const BIN0='⬜', BIN1='⬛'; // U+2B1C / U+2B1B。どちらも異体字セレクター不要
   const HEX = ['⓿','➊','➋','➌','➍','➎','➏','➐','➑','➒','🅐','🅑','🅒','🅓','🅔','🅕']; // 0..F visibly distinct
 
   function bytesToBinary(bytes){
@@ -26,66 +40,47 @@ const BinaryHex = (()=>{
     return new Uint8Array(arr);
   }
 
+  /**
+   * 2進数の文字列を絵文字に置き換える
+   * @param {string} bin - '0' と '1' だけの文字列
+   * @param {string} chunk - '8' / '4' / 'none'（区切りの桁数）
+   */
   function binToEmoji(bin, chunk){
-    // chunk is 8/4/none
+    const size = (chunk==='8'||chunk==='4') ? parseInt(chunk,10) : 0;
     let out='';
-    for(const ch of bin){
-      out += (ch==='1')?BIN1:BIN0;
-    }
-    if(chunk==='none') return out;
-    // insert thin spaces every chunk
-    if(chunk==='8' || chunk==='4'){
-      const size = parseInt(chunk,10);
-      const groups=[];
-      let i=0; let count=0; let cur='';
-      for(const ch of out){
-        cur += ch;
-        // Each emoji is length 2+ code units; grouping by bits is tough.
-        // Easier: group by original bin string and rebuild.
-      }
-      // rebuild clean by iterating bin again:
-      out='';
-      let buff='';
-      for(let i=0;i<bin.length;i++){
-        buff += (bin[i]==='1')?BIN1:BIN0;
-        if((i+1)%size===0) { out+=buff+' '; buff=''; }
-      }
-      out+=buff;
-      return out.trim();
+    for(let i=0;i<bin.length;i++){
+      out += (bin[i]==='1')?BIN1:BIN0;
+      if(size && (i+1)%size===0 && i+1<bin.length) out += ' ';
     }
     return out;
   }
+
+  /** 絵文字を 0/1 に戻す（知らない文字は読み飛ばす） */
   function emojiToBin(emo){
-    // map back to 0/1
-    const clusters = Array.from(emo);
     let bin='';
-    for(const g of clusters){
-      if(g===BIN1) bin+='1';
-      else if(g===BIN0) bin+='0';
+    for(const g of Graphemes.split(emo)){
+      const bare = Graphemes.stripVariationSelectors(g);
+      if(g===BIN1 || bare===BIN1) bin+='1';
+      else if(g===BIN0 || bare===BIN0) bin+='0';
     }
     return bin;
   }
+
   function hexToEmoji(hex, chunk){
     const clean = hex.replace(/[^0-9a-fA-F]/g,'').toLowerCase();
+    const size = (chunk==='2') ? 2 : 0;
     let out='';
-    for(const ch of clean){
-      const idx = parseInt(ch,16);
-      out += HEX[idx];
-    }
-    if(chunk==='none') return out;
-    if(chunk==='2'){
-      let o=''; for(let i=0;i<clean.length;i++){
-        o += HEX[parseInt(clean[i],16)];
-        if((i+1)%2===0) o+=' ';
-      }
-      return o.trim();
+    for(let i=0;i<clean.length;i++){
+      out += HEX[parseInt(clean[i],16)];
+      if(size && (i+1)%size===0 && i+1<clean.length) out += ' ';
     }
     return out;
   }
+
   function emojiToHex(emo){
-    const clusters = Array.from(emo).filter(x=>x.trim()!=='');
     let hex='';
-    for(const g of clusters){
+    for(const g of Graphemes.split(emo)){
+      if(!g.trim()) continue;
       const idx = HEX.indexOf(g);
       if(idx>=0) hex += idx.toString(16);
     }
@@ -122,7 +117,10 @@ const BinaryHex = (()=>{
   }
 
   return {
+    BIN0, BIN1, HEX,
     encodeBinaryToEmoji, decodeBinaryFromEmoji,
     encodeHexToEmoji, decodeHexFromEmoji
   };
 })();
+
+globalThis.BinaryHex = BinaryHex;

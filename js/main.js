@@ -28,11 +28,11 @@ const State = {
 /**
  * 絵文字セットをJSONファイルから読み込み、UIに反映
  */
-async function loadEmojiSets(){
-  const res = await fetch('data/emoji_sets.json');
-  const json = await res.json();
+function loadEmojiSets(){
+  // js/emoji-sets.js がスクリプトとして読み込む（fetch だと file:// で開けない）
+  const sets = globalThis.EmojiSets || [];
   // 配列をオブジェクトに変換（id をキーに）
-  State.emojiSets = json.reduce((a,s)=> (a[s.id]=s, a), {});
+  State.emojiSets = sets.reduce((a,s)=> (a[s.id]=s, a), {});
 
   // セレクトボックスに選択肢を追加
   const sel = EL('emoji-set');
@@ -82,16 +82,38 @@ function rebuildMappingFromSet(){
  * タブを切り替える
  * @param {string} tab - タブ名（transform, visualizer, practice, learn, settings）
  */
-function switchTab(tab){
+function switchTab(tab, focus){
   // タブボタンのアクティブ状態を更新
   document.querySelectorAll('.tab').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tab===tab);
-    b.setAttribute('aria-selected', b.dataset.tab===tab ? 'true' : 'false');
+    const on = b.dataset.tab===tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    // 選んでいるタブだけが Tab キーの順路に入る（WAI-ARIA の tabs パターン）
+    b.setAttribute('tabindex', on ? '0' : '-1');
+    if(on && focus) b.focus();
   });
   // タブパネルの表示/非表示を切り替え
   document.querySelectorAll('.tab-panel').forEach(p=>{
     p.classList.toggle('active', p.id === `tab-${tab}`);
   });
+}
+
+/**
+ * タブを矢印キー・Home・End で動かす
+ * @param {KeyboardEvent} e
+ */
+function onTabKeydown(e){
+  const tabs = [...document.querySelectorAll('.tab')];
+  const i = tabs.indexOf(e.currentTarget);
+  if(i < 0) return;
+  let next = null;
+  if(e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+  else if(e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+  else if(e.key === 'Home') next = 0;
+  else if(e.key === 'End') next = tabs.length - 1;
+  if(next === null) return;
+  e.preventDefault();
+  switchTab(tabs[next].dataset.tab, true);
 }
 
 /* ============================================
@@ -120,7 +142,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-shift">
           <span data-i18n="mode.shift">シフト</span>
-          <span class="help-icon" data-tooltip="${t('mode.shift_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.shift_help')}">?</button>
         </label>
         <input id="opt-shift" type="number" min="0" max="25" value="3"/>
       </div>`;
@@ -131,7 +153,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-key">
           <span data-i18n="mode.key">鍵（英字）</span>
-          <span class="help-icon" data-tooltip="${t('mode.key_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.key_help')}">?</button>
         </label>
         <input id="opt-key" type="text" value="LEMON"/>
       </div>`;
@@ -146,7 +168,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-bin-chunk">
           <span data-i18n="mode.bin_chunk">チャンク区切り</span>
-          <span class="help-icon" data-tooltip="${t('mode.bin_chunk_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.bin_chunk_help')}">?</button>
         </label>
         <select id="opt-bin-chunk">
           <option value="8">8</option>
@@ -161,7 +183,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-hex-chunk">
           <span data-i18n="mode.hex_chunk">チャンク区切り</span>
-          <span class="help-icon" data-tooltip="${t('mode.hex_chunk_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.hex_chunk_help')}">?</button>
         </label>
         <select id="opt-hex-chunk">
           <option value="2">2</option>
@@ -174,7 +196,13 @@ function mountModeOptions(){
     container.innerHTML = `<div class="note" data-i18n="mode.custom_note">設定タブで作成した Custom Map を使用します（A–Z → 絵文字）。</div>`;
     const saved = localStorage.getItem('cet.custommap');
     if(saved){
-      State.mapping26 = JSON.parse(saved);
+      // 壊れた値が入っていても画面全体を止めない（custommap.js と同じ扱い）
+      try{
+        State.mapping26 = JSON.parse(saved);
+      }catch(e){
+        console.warn('Custom Map の読み込みに失敗したので、プリセットを使います:', e);
+        rebuildMappingFromSet();
+      }
       renderVisualizerGrid();
     }
   }
@@ -212,10 +240,37 @@ function showToast(message){
  * @param {string} str - 入力文字列
  * @returns {string} 正規化された文字列
  */
+/**
+ * シフト量を 0–25 に収める
+ * number入力には「-5」や空も入りうるので、負の数も NaN も吸収する
+ * @param {string|number} value
+ * @returns {number} 0–25
+ */
+function normalizeShift(value){
+  const n = parseInt(value, 10);
+  if(!Number.isFinite(n)) return 0;
+  return ((n % 26) + 26) % 26;
+}
+
+/**
+ * クリップボードへ書き、成否を知らせる
+ * @param {string} text
+ * @param {string} okMessage
+ */
+function copyText(text, okMessage){
+  if(!navigator.clipboard){
+    showToast(t('toast.copy_unavailable'));
+    return;
+  }
+  navigator.clipboard.writeText(text)
+    .then(()=> showToast(okMessage))
+    .catch(()=> showToast(t('toast.copy_failed')));
+}
+
 function normalizeInput(str){
   if(EL('uppercase').checked) str = str.toUpperCase();        // 大文字化
   if(!EL('keep-spaces').checked) str = str.replace(/\s+/g,''); // スペース削除
-  if(!EL('keep-punct').checked) str = str.replace(/[^A-Z0-9\s]/g,''); // 記号削除
+  if(!EL('keep-punct').checked) str = str.replace(/[^A-Za-z0-9\s]/g,''); // 記号削除（大文字化OFFでも小文字を残す）
   return str.normalize('NFC'); // Unicode正規化
 }
 
@@ -233,7 +288,7 @@ function encodeCurrent(){
   let out='', hint='';
 
   if(mode==='caesar'){
-    const shift = parseInt(EL('opt-shift').value||'0',10)%26;
+    const shift = normalizeShift(EL('opt-shift').value);
     out = Caesar.encodeToEmoji(normalizeInput(input), shift, set);
     hint = `Caesar / shift=${shift}`;
   }else if(mode==='vigenere'){
@@ -269,7 +324,7 @@ function decodeCurrent(){
   let out='', hint='';
 
   if(mode==='caesar'){
-    const shift = parseInt(EL('opt-shift').value||'0',10)%26;
+    const shift = normalizeShift(EL('opt-shift').value);
     out = Caesar.decodeFromEmoji(input, shift, set);
     hint = `Decode Caesar / shift=${shift}`;
   }else if(mode==='vigenere'){
@@ -309,8 +364,15 @@ function renderVisualizerGrid(){
     const cell = document.createElement('div');
     cell.className='cell';
     cell.dataset.letter = k;
-    // アクセシビリティのため aria-label 付与
-    cell.innerHTML = `<span class="k">${k}</span><span class="v" aria-label="${k}">${v}</span>`;
+    // 値は JSON インポート由来の任意の文字列なので、HTML として組み立てない
+    const kEl = document.createElement('span');
+    kEl.className = 'k';
+    kEl.textContent = k;
+    const vEl = document.createElement('span');
+    vEl.className = 'v';
+    vEl.setAttribute('aria-label', k);
+    vEl.textContent = v;
+    cell.append(kEl, vEl);
     grid.appendChild(cell);
   });
 }
@@ -368,56 +430,25 @@ function newPractice(){
   // モードが絵文字セットを使う場合はマッピングを再構築
   rebuildMappingFromSet();
 
-  // モードごとに問題と正解を生成
-  if(mode==='caesar'){
-    const shift = 3; // 固定シフト値
-    if(dir==='text-to-emoji'){
-      question = Caesar.encodeToEmoji(pick, shift, State.mapping26);
-      answer = pick;
-    }else{
-      question = pick;
-      answer = Caesar.encodeToEmoji(pick, shift, State.mapping26);
-    }
-  }else if(mode==='vigenere'){
-    const key = 'LEMON'; // 固定鍵
-    if(dir==='text-to-emoji'){
-      question = Vigenere.encodeToEmoji(pick, key, State.mapping26);
-      answer = pick;
-    }else{
-      question = pick;
-      answer = Vigenere.encodeToEmoji(pick, key, State.mapping26);
-    }
-  }else if(mode==='morse'){
-    if(dir==='text-to-emoji'){
-      question = Morse.encodeToEmoji(pick);
-      answer = pick;
-    }else{
-      question = pick;
-      answer = Morse.encodeToEmoji(pick);
-    }
-  }else if(mode==='binary'){
-    if(dir==='text-to-emoji'){
-      question = BinaryHex.encodeBinaryToEmoji(pick,'8');
-      answer = pick;
-    }else{
-      question = pick;
-      answer = BinaryHex.encodeBinaryToEmoji(pick,'8');
-    }
-  }else if(mode==='hex'){
-    if(dir==='text-to-emoji'){
-      question = BinaryHex.encodeHexToEmoji(pick,'2');
-      answer = pick;
-    }else{
-      question = pick;
-      answer = BinaryHex.encodeHexToEmoji(pick,'2');
-    }
-  }
+  // モードごとに絵文字へ変換する（鍵やシフトは練習用に固定）
+  const toEmoji = {
+    caesar: (s)=> Caesar.encodeToEmoji(s, 3, State.mapping26),
+    vigenere: (s)=> Vigenere.encodeToEmoji(s, 'LEMON', State.mapping26),
+    morse: (s)=> Morse.encodeToEmoji(s),
+    binary: (s)=> BinaryHex.encodeBinaryToEmoji(s, '8'),
+    hex: (s)=> BinaryHex.encodeHexToEmoji(s, '2'),
+  }[mode];
+  const emoji = toEmoji ? toEmoji(pick) : pick;
+
+  // ラベルどおりに出す。「テキスト → 絵文字」なら問題がテキストで、答えが絵文字
+  question = (dir==='text-to-emoji') ? pick : emoji;
+  answer   = (dir==='text-to-emoji') ? emoji : pick;
 
   // UIに反映
   EL('practice-question').textContent = question;
   EL('practice-answer').value = '';
   EL('practice-answer').dataset.correct = answer; // 正解をデータ属性に保存
-  EL('practice-result').textContent = '回答を入力して「判定」';
+  EL('practice-result').textContent = t('practice.prompt');
 }
 
 /**
@@ -435,7 +466,7 @@ function checkPractice(){
   State.practice.times.push(dt);
 
   // 結果表示
-  EL('practice-result').textContent = ok ? '✅ 正解！' : `❌ 不正解。正解は：${correct}`;
+  EL('practice-result').textContent = ok ? t('practice.correct') : t('practice.incorrect') + correct;
 
   // 統計表示更新
   EL('stat-correct').textContent = State.practice.correct;
@@ -465,7 +496,8 @@ function updateShareURL(){
 
   // 入力テキスト（512文字未満のみ）
   const input = EL('input').value;
-  if(input && input.length<512) params.set('in', encodeURIComponent(input));
+  // URLSearchParams が自分でエスケープするので、手でエスケープし直さない（二重になる）
+  if(input && input.length<512) params.set('in', input);
 
   // モード別パラメーター
   if(State.currentMode==='caesar'){
@@ -504,7 +536,7 @@ function applyParams(){
   const keepS = qs.get('keepS'); if(keepS) EL('keep-spaces').checked = keepS==='1';
   const keepP = qs.get('keepP'); if(keepP) EL('keep-punct').checked = keepP==='1';
   const up = qs.get('up'); if(up) EL('uppercase').checked = up==='1';
-  const input = qs.get('in'); if(input) EL('input').value = decodeURIComponent(input);
+  const input = qs.get('in'); if(input) EL('input').value = input;
 
   // モード別オプションを表示
   mountModeOptions();
@@ -524,12 +556,15 @@ function applyParams(){
 /* ============================================
  * イベントリスナー登録
  * ============================================ */
-document.addEventListener('DOMContentLoaded', async ()=>{
+document.addEventListener('DOMContentLoaded', ()=>{
   // タブ切り替え
-  document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click',()=>switchTab(b.dataset.tab));
+    b.addEventListener('keydown', onTabKeydown);
+  });
 
   // 初期化処理
-  await loadEmojiSets();
+  loadEmojiSets();
   renderMorseTable();
   mountModeOptions();
   applyParams(); // URLパラメーターがあれば復元
@@ -548,15 +583,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     EL('output').value='';
   });
 
-  // コピー機能
+  // コピー機能（失敗したら失敗したと知らせる）
   EL('btn-copy-output').addEventListener('click', ()=>{
-    navigator.clipboard.writeText(EL('output').value||'');
-    showToast('✅ コピーしました');
+    copyText(EL('output').value||'', t('toast.copied'));
   });
   EL('btn-share').addEventListener('click', updateShareURL);
   EL('btn-copy-url').addEventListener('click', ()=>{
-    navigator.clipboard.writeText(EL('share-url').value||'');
-    showToast('✅ URLをコピーしました');
+    copyText(EL('share-url').value||'', t('toast.url_copied'));
   });
 
   // 対応表タブのイベント

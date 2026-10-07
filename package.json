@@ -1,0 +1,8 @@
+{
+  "name": "crypto-emoji-translator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
