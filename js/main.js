@@ -237,12 +237,12 @@ function normalizeShift(value){
  */
 function copyText(text, okMessage){
   if(!navigator.clipboard){
-    showToast('❌ この環境ではコピーできません');
+    showToast(t('toast.copy_unavailable'));
     return;
   }
   navigator.clipboard.writeText(text)
     .then(()=> showToast(okMessage))
-    .catch(()=> showToast('❌ コピーに失敗しました'));
+    .catch(()=> showToast(t('toast.copy_failed')));
 }
 
 function normalizeInput(str){
@@ -426,7 +426,7 @@ function newPractice(){
   EL('practice-question').textContent = question;
   EL('practice-answer').value = '';
   EL('practice-answer').dataset.correct = answer; // 正解をデータ属性に保存
-  EL('practice-result').textContent = '回答を入力して「判定」';
+  EL('practice-result').textContent = t('practice.prompt');
 }
 
 /**
@@ -444,7 +444,7 @@ function checkPractice(){
   State.practice.times.push(dt);
 
   // 結果表示
-  EL('practice-result').textContent = ok ? '✅ 正解！' : `❌ 不正解。正解は：${correct}`;
+  EL('practice-result').textContent = ok ? t('practice.correct') : t('practice.incorrect') + correct;
 
   // 統計表示更新
   EL('stat-correct').textContent = State.practice.correct;
@@ -560,11 +560,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // コピー機能（失敗したら失敗したと知らせる）
   EL('btn-copy-output').addEventListener('click', ()=>{
-    copyText(EL('output').value||'', '✅ コピーしました');
+    copyText(EL('output').value||'', t('toast.copied'));
   });
   EL('btn-share').addEventListener('click', updateShareURL);
   EL('btn-copy-url').addEventListener('click', ()=>{
-    copyText(EL('share-url').value||'', '✅ URLをコピーしました');
+    copyText(EL('share-url').value||'', t('toast.url_copied'));
   });
 
   // 対応表タブのイベント

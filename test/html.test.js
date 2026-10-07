@@ -70,7 +70,7 @@ test('シフト量を 0–25 に正規化している', () => {
 
 test('コピーの失敗を知らせる', () => {
   assert.match(main, /function copyText/);
-  assert.match(main, /\.catch\(\(\)=> showToast\('❌ コピーに失敗しました'\)\)/);
+  assert.match(main, /\.catch\(\(\)=> showToast\(t\('toast\.copy_failed'\)\)\)/);
   // 投げっぱなしの writeText が残っていない
   assert.doesNotMatch(main, /navigator\.clipboard\.writeText\([^)]*\);\s*\n\s*showToast/);
 });
