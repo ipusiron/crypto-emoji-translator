@@ -13,29 +13,35 @@ Demo: https://ipusiron.github.io/crypto-emoji-translator/
 This is a static web application with no build process:
 
 ```bash
-# Open directly in browser
+# Open directly in browser — this works: nothing is fetched at runtime
 start index.html
 
-# Or serve with a local server (for testing fetch requests)
+# Or serve over HTTP
 python -m http.server 8000
-# Then open http://localhost:8000
-
-# Alternative: Node-based server
-npx http-server .
 ```
 
-No installation, build, or package management required.
+No installation, build, or package management required for the app itself.
+The emoji sets used to be fetched from `data/emoji_sets.json`, which made
+`file://` fail outright (`Fetch API cannot load file:// … URL scheme "file" is not supported`),
+so they are now a plain script: `js/emoji-sets.js`.
 
 ## Testing
 
-No automated tests. Manually verify after changes:
-- Each cipher mode (Caesar, Vigenère, Morse, Binary, Hex, Custom)
-- Custom map save/load cycle and JSON import/export
-- Practice mode counters and timing
-- Theme toggles (default/dark/light)
-- Language switching (Japanese/English)
+```bash
+npm test
+```
 
-Check browser devtools for console warnings and failed network requests.
+`node --test`, no dependencies, Node.js 22+. GitHub Actions runs it on push and pull request.
+
+- `test/core.test.js` — grapheme splitting, round trips for every mode × every emoji set,
+  the Morse table against ITU-R M.1677-1, edge cases
+- `test/html.test.js` — static checks on index.html and the screen-side scripts
+- `test/i18n.test.js` — the two dictionaries against the wording on screen
+- `test/contrast.test.js` — contrast ratios for all three themes, target sizes, ARIA, meta CSP
+- `test/readme.test.js` — the README against the implementation
+
+Still worth checking by hand in a browser: the custom map save/load cycle,
+practice counters and timing, and the three themes.
 
 ## Architecture
 
@@ -113,10 +119,13 @@ Decoding reverses this process using the same mapping.
 ## File Modification Guidelines
 
 ### Adding New Emoji Sets
-Edit `data/emoji_sets.json`:
-- Each set must have exactly 26 unique emoji in `items` array
+Edit `js/emoji-sets.js`:
+- Each set must have exactly 26 unique emoji in `items` (the tests enforce both)
 - Set requires `id` (unique), `name` (display), and `items`
 - Preview displays first 12 emoji
+- **Every item must be a single grapheme cluster.** `test/core.test.js` checks this,
+  so an emoji that needs U+FE0F is fine (the splitting handles it), but a ZWJ sequence is not
+  (see "Emoji and graphemes" below)
 
 ### Adding New Cipher Modes
 1. Create new module in `js/modes/` following pattern:
@@ -137,6 +146,24 @@ Edit `data/emoji_sets.json`:
 - Accessibility: Use `aria-label`, `aria-live`, `role` attributes
 - Dark mode toggles document background color only
 
+## Emoji and graphemes (js/graphemes.js)
+
+`Array.from(s)` and `[...s]` split by **code point**, which breaks any emoji carrying a
+variation selector: `Array.from('◻️')` gives `['◻', '\uFE0F']`. That is why decoding used to
+fail for 17 letters across the sets (weather alone has 14) and why binary decoding always
+returned an empty string.
+
+- Split with `Graphemes.split()`, never `Array.from`. It uses `Intl.Segmenter`
+  (Chrome 87 / Safari 14.1 / **Firefox 125, 2024-04-16**) and falls back to a small
+  hand-rolled splitter where that is missing
+- Build reverse lookups with `Graphemes.buildInverse()` / `Graphemes.lookup()`; they accept
+  the emoji with or without its variation selector
+- **Prefer emoji whose `Emoji_Presentation` property is Yes** (they need no U+FE0F).
+  `⬜`/`⬛` (U+2B1C/U+2B1B) qualify; `◻️`/`◼️` (U+25FB/U+25FC) do not — the same square
+  family splits both ways, which is exactly how the original bug got in
+- **Do not put ZWJ sequences in a substitution table.** `👨‍👩‍👧` and `👨👩👧` would map to the
+  same symbol string, so the reverse direction is not unique
+
 ## Coding Style
 
 - 2-space indentation, `const`/`let`, semicolons
@@ -156,7 +183,23 @@ Edit `data/emoji_sets.json`:
 
 ## Accessibility Considerations
 
-- Emoji mappings include `aria-label` with original letter
-- High contrast support for visualizer grid
-- All operations keyboard-accessible
+- Emoji mappings include `aria-label` with the original letter
+- **Every text colour must reach 4.5:1 against its background in all three themes.**
+  `test/contrast.test.js` computes this from the CSS variables, so add new colours as
+  variables and note the measured ratio in a comment. White text on `--accent` only gives
+  2.00:1, which is why `--on-accent` / `--on-danger` exist
+- Inputs are 16px (below that, iOS Safari zooms in), buttons 44px,
+  checkboxes 20px, the help icon 24px (WCAG 2.2 Target Size (Minimum))
+- Tabs move with the arrow keys, Home and End; only the selected tab has `tabindex="0"`
+- The help icon is a `button`, so its tooltip is reachable by keyboard
+- **Known gap**: assigning a custom map is drag-and-drop only. JSON import is the
+  keyboard alternative; say so rather than claiming full keyboard support
+
+## Writing
+
+- Japanese: polite form in prose, plain form in bullet lists and tables;
+  long vowel marks (ブラウザー, リポジトリー, ディレクトリー)
+- **モールス符号**, not モールス信号 — that is the term in 電波法 / 無線局運用規則
+  and matches ITU's *International Morse code*
+- README.md and README.en.md mirror each other section for section
 - Color-blind users may have difficulty distinguishing similar emoji (documented limitation)
