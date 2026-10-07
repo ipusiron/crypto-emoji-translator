@@ -406,6 +406,7 @@ crypto-emoji-translator/
 │   └── workflows/          # GitHub Actions のワークフロー
 │       └── test.yml        # push と pull request で npm test を走らせる
 ├── assets/                 # 画像
+│   ├── favicon.svg         # タブのアイコン（文字を絵文字に置き換える様子）
 │   ├── screenshot.png      # スクリーンショット（変換タブ）
 │   ├── screenshot2.png     # スクリーンショット（対応表タブ）
 │   ├── screenshot3.png     # スクリーンショット（解読タブ）

@@ -362,6 +362,7 @@ crypto-emoji-translator/
 │   └── workflows/          # GitHub Actions workflows
 │       └── test.yml        # runs npm test on push and pull request
 ├── assets/                 # images
+│   ├── favicon.svg         # the tab icon (letters becoming emoji)
 │   ├── screenshot.png      # screenshot (transform tab)
 │   ├── screenshot2.png     # screenshot (visualizer tab)
 │   ├── screenshot3.png     # screenshot (crack tab)
