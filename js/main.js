@@ -82,16 +82,38 @@ function rebuildMappingFromSet(){
  * タブを切り替える
  * @param {string} tab - タブ名（transform, visualizer, practice, learn, settings）
  */
-function switchTab(tab){
+function switchTab(tab, focus){
   // タブボタンのアクティブ状態を更新
   document.querySelectorAll('.tab').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tab===tab);
-    b.setAttribute('aria-selected', b.dataset.tab===tab ? 'true' : 'false');
+    const on = b.dataset.tab===tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    // 選んでいるタブだけが Tab キーの順路に入る（WAI-ARIA の tabs パターン）
+    b.setAttribute('tabindex', on ? '0' : '-1');
+    if(on && focus) b.focus();
   });
   // タブパネルの表示/非表示を切り替え
   document.querySelectorAll('.tab-panel').forEach(p=>{
     p.classList.toggle('active', p.id === `tab-${tab}`);
   });
+}
+
+/**
+ * タブを矢印キー・Home・End で動かす
+ * @param {KeyboardEvent} e
+ */
+function onTabKeydown(e){
+  const tabs = [...document.querySelectorAll('.tab')];
+  const i = tabs.indexOf(e.currentTarget);
+  if(i < 0) return;
+  let next = null;
+  if(e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+  else if(e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+  else if(e.key === 'Home') next = 0;
+  else if(e.key === 'End') next = tabs.length - 1;
+  if(next === null) return;
+  e.preventDefault();
+  switchTab(tabs[next].dataset.tab, true);
 }
 
 /* ============================================
@@ -120,7 +142,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-shift">
           <span data-i18n="mode.shift">シフト</span>
-          <span class="help-icon" data-tooltip="${t('mode.shift_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.shift_help')}">?</button>
         </label>
         <input id="opt-shift" type="number" min="0" max="25" value="3"/>
       </div>`;
@@ -131,7 +153,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-key">
           <span data-i18n="mode.key">鍵（英字）</span>
-          <span class="help-icon" data-tooltip="${t('mode.key_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.key_help')}">?</button>
         </label>
         <input id="opt-key" type="text" value="LEMON"/>
       </div>`;
@@ -146,7 +168,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-bin-chunk">
           <span data-i18n="mode.bin_chunk">チャンク区切り</span>
-          <span class="help-icon" data-tooltip="${t('mode.bin_chunk_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.bin_chunk_help')}">?</button>
         </label>
         <select id="opt-bin-chunk">
           <option value="8">8</option>
@@ -161,7 +183,7 @@ function mountModeOptions(){
       <div class="row">
         <label for="opt-hex-chunk">
           <span data-i18n="mode.hex_chunk">チャンク区切り</span>
-          <span class="help-icon" data-tooltip="${t('mode.hex_chunk_help')}">?</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.hex_chunk_help')}">?</button>
         </label>
         <select id="opt-hex-chunk">
           <option value="2">2</option>
@@ -536,7 +558,10 @@ function applyParams(){
  * ============================================ */
 document.addEventListener('DOMContentLoaded', ()=>{
   // タブ切り替え
-  document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click',()=>switchTab(b.dataset.tab));
+    b.addEventListener('keydown', onTabKeydown);
+  });
 
   // 初期化処理
   loadEmojiSets();

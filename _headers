@@ -1,12 +1,17 @@
-# Security headers for GitHub Pages
-# Note: GitHub Pages doesn't support custom headers directly
-# This file is for documentation purposes
-# Use a CDN like Cloudflare or Netlify for actual implementation
+# 配信時に付けたいセキュリティヘッダーの控え
+#
+# GitHub Pages はカスタムヘッダーに対応していないため、**このファイルは公開時には効かない**。
+# Cloudflare Pages・Netlify など _headers を読む配信元へ置いたときだけ有効になる。
+# ブラウザー側で実際に効いているのは index.html の <meta http-equiv="Content-Security-Policy"> のほう。
+#
+# frame-ancestors は meta では仕様上無視されるので、クリックジャッキング対策としては
+# 下の X-Frame-Options か、ヘッダーで配る CSP が要る。
+#
+# X-XSS-Protection は非推奨（主要ブラウザーが実装を外した）ため入れていない。
 
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
-  X-XSS-Protection: 1; mode=block
   Referrer-Policy: no-referrer
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';

@@ -144,6 +144,8 @@ const i18n = {
     'footer.text': '🔗 GitHubリポジトリーはこちら（',
     'footer.link': 'ipusiron/crypto-emoji-translator',
     'footer.close': '）',
+    'ui.help': '説明を表示',
+
     // 短い知らせ（トースト・状態表示）
     'toast.copied': '✅ コピーしました',
     'toast.url_copied': '✅ URLをコピーしました',
@@ -306,6 +308,8 @@ const i18n = {
     'footer.text': '🔗 GitHub Repository: ',
     'footer.link': 'ipusiron/crypto-emoji-translator',
     'footer.close': '',
+    'ui.help': 'Show the explanation',
+
     // Short notices (toasts and statuses)
     'toast.copied': '✅ Copied',
     'toast.url_copied': '✅ URL copied',

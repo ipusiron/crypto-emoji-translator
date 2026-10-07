@@ -16,14 +16,17 @@
   --card:#141820;
   --text:#e0e0e0;
   --muted:#9aa4af;
-  --accent:#4fc3f7;
+  --accent:#4fc3f7;          /* card(#141820)の上で 8.87:1 */
   --accent2:#81c784;
   --border:#2a3542;
-  --success:#81c784;
-  --error:#e57373;
-  --warning:#ffb74d;
+  --success:#81c784;         /* .note の背景の上で 7.37:1 */
+  --error:#ef9a9a;           /* .note の背景（--fg=#1f2833 に10%）の上で 5.76:1。#e57373 は 4.36:1 だった */
+  --warning:#ffb74d;         /* 同 8.47:1 */
   --primary:#4fc3f7;
-  --danger:#e57373;
+  --danger:#ef9a9a;
+  /* accent / primary を背景に敷いたときの文字色。白だと #4fc3f7 の上で 2.00:1 しかない */
+  --on-accent:#0b0c10;       /* #4fc3f7 の上で 9.76:1 */
+  --on-danger:#0b0c10;       /* #ef9a9a の上で 9.08:1 */
 }
 /* ダークモード（純黒） */
 body.dark-mode{
@@ -31,7 +34,7 @@ body.dark-mode{
   --fg:#0d0d0d;
   --card:#0a0a0a;
   --text:#f5f5f5;
-  --muted:#a0a0a0;
+  --muted:#a0a0a0;            /* card(#0a0a0a)の上で 7.57:1 */
   --border:#1a1a1a;
 }
 /* ライトモード */
@@ -41,14 +44,17 @@ body.light-mode{
   --card:#ffffff;
   --text:#1a1a1a;
   --muted:#666666;
-  --accent:#0288d1;
-  --accent2:#66bb6a;
+  /* もとの値は白地で 3.86:1（accent）・2.36:1（success）など、いずれも 4.5 に届かなかった */
+  --accent:#01579b;          /* card(#fff)の上で 7.40:1、bg(#f5f5f5)で 6.79:1 */
+  --accent2:#1b5e20;
   --border:#e0e0e0;
-  --success:#66bb6a;
-  --error:#e53935;
-  --warning:#fb8c00;
-  --primary:#0288d1;
-  --danger:#e53935;
+  --success:#1b5e20;         /* .note の背景の上で 7.37:1 */
+  --error:#b71c1c;           /* 同 5.95:1 */
+  --warning:#9a5200;         /* 同 5.55:1 */
+  --primary:#0277bd;         /* 白文字を載せて 4.80:1 */
+  --danger:#b71c1c;          /* 白文字を載せて 6.57:1 */
+  --on-accent:#ffffff;
+  --on-danger:#ffffff;
 }
 /* ============================================
  * Base Styles
@@ -161,7 +167,7 @@ button:focus-visible{
 button.primary{
   background:linear-gradient(135deg, var(--primary), var(--accent));
   border-color:var(--primary);
-  color:#fff;
+  color:var(--on-accent);
   font-weight:600;
   box-shadow:0 4px 12px rgba(79, 195, 247, 0.3);
 }
@@ -183,7 +189,7 @@ button.secondary{
 button.danger{
   background:linear-gradient(135deg, var(--danger), var(--error));
   border-color:var(--danger);
-  color:#fff;
+  color:var(--on-danger);
   box-shadow:0 4px 12px rgba(229, 115, 115, 0.3);
 }
 body.light-mode button.danger{
@@ -222,8 +228,8 @@ button:disabled{
 .switches input[type="radio"],
 .switches input[type="checkbox"]{
   cursor:pointer;
-  width:18px;
-  height:18px;
+  width:20px;
+  height:20px;
 }
 .panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:920px){
@@ -438,18 +444,25 @@ button.compact{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:18px;
-  height:18px;
+  width:24px;
+  height:24px;
+  /* 見た目は24pxだが、触れる範囲を44px角にする（上下左右に10pxずつ） */
+  padding:0;
+  border:none;
+  outline-offset:2px;
+  box-shadow:0 0 0 10px transparent;
   border-radius:50%;
   background:var(--accent);
-  color:#fff;
-  font-size:12px;
+  color:var(--on-accent);
+  font-size:13px;
   font-weight:700;
+  font-family:inherit;
   cursor:help;
   margin-left:6px;
   position:relative;
 }
-.help-icon:hover::after{
+.help-icon:hover::after,
+.help-icon:focus-visible::after{
   content:attr(data-tooltip);
   position:absolute;
   bottom:calc(100% + 8px);
@@ -460,14 +473,19 @@ button.compact{
   padding:8px 12px;
   border-radius:6px;
   border:1px solid var(--border);
-  white-space:nowrap;
+  /* 狭い画面で説明が画面外へはみ出さないよう折り返す */
+  white-space:normal;
+  width:max-content;
+  max-width:70vw;
+  text-align:left;
   font-size:13px;
   font-weight:400;
   box-shadow:0 4px 12px rgba(0,0,0,0.3);
   z-index:100;
   pointer-events:none;
 }
-.help-icon:hover::before{
+.help-icon:hover::before,
+.help-icon:focus-visible::before{
   content:"";
   position:absolute;
   bottom:calc(100% + 2px);
@@ -628,4 +646,35 @@ body.light-mode .toast{
     opacity:0;
     transform:translateX(400px);
   }
+}
+
+/* ============================================
+ * 触って操作する要素の大きさ
+ * ============================================
+ * 16px 未満の入力欄は iOS Safari が自動で拡大するため、16px を下回らせない。
+ * 高さ44pxは WCAG 2.2 の Target Size (Minimum) に合わせた目安。
+ */
+input, select, textarea, button{
+  font-size:16px;
+}
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+button{
+  min-height:44px;
+}
+input[type="checkbox"], input[type="radio"]{
+  width:20px;
+  height:20px;
+}
+/* チェックボックスの行は、ラベルごと触れるように高さを確保する */
+.opt-row label, label.checkbox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:44px;
+}
+.help-icon{
+  /* WCAG 2.2 の 2.5.8 Target Size (Minimum) は 24×24 CSS px */
+  min-height:24px;
+  min-width:24px;
 }
