@@ -10,7 +10,7 @@ const CustomMap = (()=>{
       const div = document.createElement('div');
       div.className='slot';
       div.dataset.letter = ch;
-      div.innerHTML = `<span class="label">${ch}</span><div class="emoji" droppable="true">—</div>`;
+      div.innerHTML = `<span class="label">${ch}</span><div class="emoji">—</div>`;
       slots.appendChild(div);
     }
 
