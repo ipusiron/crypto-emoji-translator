@@ -328,7 +328,8 @@ crypto-emoji-translator/
 │       ├── caesar.js       # Caesar cipher
 │       ├── vigenere.js     # Vigenère cipher
 │       ├── morse.js        # Morse code
-│       └── binaryhex.js    # binary and hex
+│       ├── binaryhex.js    # binary and hex
+│       └── bytes.js        # byte mode (Base100: one UTF-8 byte, one emoji)
 ├── test/                   # tests (run with node --test)
 │   ├── load.js             # loads the same scripts the screen does, and builds the mapping
 │   ├── core.test.js        # the calculation layer (splitting, round trips, the tables, the edges)

@@ -23,6 +23,7 @@ export function modules() {
   load('js/modes/vigenere.js');
   load('js/modes/morse.js');
   load('js/modes/binaryhex.js');
+  load('js/modes/bytes.js');
   return globalThis;
 }
 

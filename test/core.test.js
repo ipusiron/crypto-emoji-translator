@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { modules, LETTERS, mappingOf, codepoints } from './load.js';
 
-const { Graphemes, EmojiSets, Caesar, Vigenere, Morse, BinaryHex } = modules();
+const { Graphemes, EmojiSets, Caesar, Vigenere, Morse, BinaryHex, ByteCode } = modules();
 
 // ---- グラフェム分割
 
@@ -324,4 +324,87 @@ test('知らない符号は ? にして、件数を返す', () => {
 test('旧来の呼び出し方も動く', () => {
   assert.equal(Morse.encodeToEmoji('SOS'), '⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫');
   assert.equal(Morse.decodeFromEmoji('⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫'), 'SOS');
+});
+
+// ---- バイト単位モード（Base100）
+
+test('表は256個で、重複がなく、すべて絵文字である', () => {
+  assert.equal(ByteCode.ALPHABET.length, 256);
+  assert.equal(new Set(ByteCode.ALPHABET).size, 256);
+  for (const e of ByteCode.ALPHABET) {
+    assert.equal([...e].length, 1, `${e} が1コードポイントでない`);
+    assert.match(e, /\p{Emoji}/u, `${e} が絵文字でない`);
+  }
+});
+
+test('割り当ては Base100（U+1F3F7 + バイト値）', () => {
+  assert.equal(ByteCode.BASE, 0x1f3f7);
+  assert.equal(ByteCode.ALPHABET[0].codePointAt(0), 0x1f3f7);
+  assert.equal(ByteCode.ALPHABET[255].codePointAt(0), 0x1f4f6);
+  // dCode の Base100 と同じ出力になる（実機で確かめた値）
+  assert.equal(ByteCode.encode('HELLO').emoji, '🐿🐼👃👃👆');
+});
+
+test('3つだけ、異体字セレクターが無いと絵文字として表示されない', () => {
+  // U+1F3F7 🏷 ・ U+1F43F 🐿 ・ U+1F441 👁 は Emoji_Presentation=No
+  const need = ByteCode.needsVariationSelector();
+  assert.deepEqual(need.map((x) => x.byte), [0, 72, 74]);
+  // 出力は Base100 の定義どおり、セレクターを付けない
+  assert.equal([...ByteCode.encode('H').emoji].length, 1);
+  assert.doesNotMatch(ByteCode.encode('\u0000').emoji, /\uFE0F/);
+});
+
+test('どんな入力でも往復する（日本語・数字・記号・絵文字）', () => {
+  for (const text of ['HELLO WORLD', 'こんにちは', '日本語123!?', '🍎🐱', 'a\nb\tc', '']) {
+    for (const chunk of ['none', '4', '8']) {
+      const r = ByteCode.encode(text, chunk);
+      const back = ByteCode.decode(r.emoji);
+      assert.equal(back.text, text, `${JSON.stringify(text)} / ${chunk} で戻らない`);
+      assert.equal(back.bytes, r.bytes);
+      assert.equal(back.valid, true);
+    }
+  }
+});
+
+test('A–Z しか通らないモードとの違いが出る', () => {
+  const map = mappingOf('foods');
+  // シーザーは日本語と数字を素通りさせる
+  assert.equal(Caesar.encodeToEmoji('こんにちは123', 3, map), 'こんにちは123');
+  // バイトモードは全部を符号化する
+  const r = ByteCode.encode('こんにちは123');
+  assert.equal(r.bytes, 18, 'かな5文字×3バイト＋数字3バイト');
+  assert.doesNotMatch(r.emoji, /[こんにちは123]/);
+  assert.equal(ByteCode.decode(r.emoji).text, 'こんにちは123');
+});
+
+test('チャンク区切りは読みやすさだけで、復号に影響しない', () => {
+  const plain = ByteCode.encode('HELLO WORLD', 'none');
+  const four = ByteCode.encode('HELLO WORLD', '4');
+  assert.notEqual(plain.emoji, four.emoji);
+  assert.equal(four.emoji.split(' ').length, 3, '11バイトを4つずつで3組');
+  assert.equal(four.emoji.endsWith(' '), false);
+  assert.equal(ByteCode.decode(plain.emoji).text, ByteCode.decode(four.emoji).text);
+});
+
+test('異体字セレクターを付けて貼られても読める', () => {
+  const withVs = ByteCode.ALPHABET[72] + '\uFE0F' + ByteCode.ALPHABET[73] + '\uFE0F';
+  const r = ByteCode.decode(withVs);
+  assert.equal(r.text, 'HI');
+  assert.deepEqual(r.unknown, []);
+});
+
+test('表にない絵文字は読み飛ばして件数を返す', () => {
+  // 🍎 U+1F34E と 🚀 U+1F680 は Base100 の範囲（U+1F3F7〜U+1F4F6）の外
+  // （🐱 U+1F431 は範囲の中なので、バイト 0x3A = ':' として読める）
+  const r = ByteCode.decode('🍎' + ByteCode.ALPHABET[65] + '🚀');
+  assert.equal(r.text, 'A');
+  assert.deepEqual(r.unknown, ['🍎', '🚀']);
+  assert.equal(ByteCode.decode('🐱').text, ':', '範囲の中の絵文字は読める');
+});
+
+test('UTF-8として読めないバイト列は、読める範囲を出して知らせる', () => {
+  // 0xFF は単体では UTF-8 にならない
+  const r = ByteCode.decode(ByteCode.ALPHABET[0xff]);
+  assert.equal(r.valid, false);
+  assert.equal(r.bytes, 1);
 });

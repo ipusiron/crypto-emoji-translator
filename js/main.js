@@ -201,6 +201,22 @@ function mountModeOptions(){
         </select>
       </div>`;
   }
+  // Bytes: チャンク区切り選択
+  else if(mode==='bytes'){
+    container.innerHTML = `
+      <div class="note" data-i18n="mode.bytes_note">UTF-8のバイト1つを絵文字1つに置き換えます。256個の絵文字を使うので、日本語でも数字でも記号でも通ります。</div>
+      <div class="row">
+        <label for="opt-byte-chunk">
+          <span data-i18n="mode.byte_chunk">チャンク区切り</span>
+          <button type="button" class="help-icon" aria-label="${t('ui.help')}" data-tooltip="${t('mode.byte_chunk_help')}">?</button>
+        </label>
+        <select id="opt-byte-chunk">
+          <option value="none" data-i18n="mode.chunk_none">なし</option>
+          <option value="4">4</option>
+          <option value="8">8</option>
+        </select>
+      </div>`;
+  }
   // Custom: localStorageから読み込み
   else if(mode==='custom'){
     container.innerHTML = `<div class="note" data-i18n="mode.custom_note">設定タブで作成した Custom Map を使用します（A–Z → 絵文字）。</div>`;
@@ -288,6 +304,12 @@ function normalizeInput(str){
  * エンコード/デコード処理
  * ============================================ */
 
+/** いま選ばれているバイトモードのチャンク区切り */
+function byteChunk(){
+  const el = document.getElementById('opt-byte-chunk');
+  return el ? el.value : 'none';
+}
+
 /** いま選ばれているモールスの符号表 */
 function morseVariant(){
   const el = document.getElementById('opt-morse-variant');
@@ -347,6 +369,11 @@ function encodeCurrent(){
     const chunk = EL('opt-hex-chunk').value;
     out = BinaryHex.encodeHexToEmoji(input, chunk);
     hint = `Hex to Emoji`;
+  }else if(mode==='bytes'){
+    const chunk = byteChunk();
+    const r = ByteCode.encode(input, chunk);
+    out = r.emoji;
+    hint = t('hint.bytes_encode', { bytes: r.bytes });
   }else if(mode==='custom'){
     out = Caesar.encodeToEmoji(normalizeInput(input), 0, State.mapping26);
     hint = `Custom Map`;
@@ -384,6 +411,12 @@ function decodeCurrent(){
   }else if(mode==='hex'){
     out = BinaryHex.decodeHexFromEmoji(input);
     hint = `Emoji to Hex → Text`;
+  }else if(mode==='bytes'){
+    const r = ByteCode.decode(input);
+    out = r.text;
+    hint = t('hint.bytes_decode', { bytes: r.bytes });
+    if(r.unknown.length) showToast(t('toast.bytes_unknown', { count: r.unknown.length }));
+    if(!r.valid) showToast(t('toast.bytes_invalid'));
   }else if(mode==='custom'){
     out = Caesar.decodeFromEmoji(input, 0, State.mapping26);
     hint = `Decode with Custom Map`;
@@ -481,6 +514,7 @@ function newPractice(){
     morse: (s)=> Morse.encodeToEmoji(s, 'international'),
     binary: (s)=> BinaryHex.encodeBinaryToEmoji(s, '8'),
     hex: (s)=> BinaryHex.encodeHexToEmoji(s, '2'),
+    bytes: (s)=> ByteCode.encode(s, 'none').emoji,
   }[mode];
   const emoji = toEmoji ? toEmoji(pick) : pick;
 
@@ -554,6 +588,8 @@ function updateShareURL(){
     params.set('bchunk', EL('opt-bin-chunk').value);
   }else if(State.currentMode==='hex'){
     params.set('hchunk', EL('opt-hex-chunk').value);
+  }else if(State.currentMode==='bytes'){
+    params.set('ychunk', byteChunk());
   }
 
   const url = `${location.origin}${location.pathname}?${params.toString()}`;
@@ -599,6 +635,9 @@ function applyParams(){
     const b = qs.get('bchunk'); if(b) EL('opt-bin-chunk').value=b;
   }else if(mode==='hex'){
     const h = qs.get('hchunk'); if(h) EL('opt-hex-chunk').value=h;
+  }else if(mode==='bytes'){
+    const y = qs.get('ychunk');
+    if(y && EL('opt-byte-chunk')) EL('opt-byte-chunk').value=y;
   }
 }
 
