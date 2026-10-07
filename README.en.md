@@ -32,14 +32,20 @@ Runs entirely in your browser.
 >![The letter-to-emoji table](assets/en/screenshot2.png)
 >*Visualizer tab, the A–Z mapping with the typed letters highlighted. The Morse table uses ⚫⚪*
 
->![The practice quiz](assets/en/screenshot3.png)
+>![Breaking it without the key](assets/en/screenshot3.png)
+>*Crack tab. Work down from the most frequent emoji and confirm with a crib. Other substitution solvers will not take emoji*
+
+>![Finding invisible characters](assets/en/screenshot4.png)
+>*Crack tab, reading out a message hidden behind what looks like a single emoji*
+
+>![Checking the substitution table](assets/en/screenshot5.png)
+>*Settings tab. Checking the weather set still lists the 14 letters that were actually broken in this tool*
+
+>![The practice quiz](assets/en/screenshot6.png)
 >*Practice tab. Switch the direction and work through questions; accuracy and average time are kept*
 
->![What emoji do and do not buy you](assets/en/screenshot4.png)
->*Study tab, explaining that emoji add no strength, and what colour costs people who cannot see it*
+---
 
->![The custom map editor](assets/en/screenshot5.png)
->*Settings tab. Assign any emoji to A–Z and move the mapping in and out as JSON*
 
 ---
 
@@ -125,10 +131,14 @@ In that case there is no "encipher, then substitute" in two steps:
 - **Morse ↔ emoji**: ⚫ (dot) and ⚪ (dash), with ⏹ between letters and ⏸ between words. **The international and Wabun tables can be switched** (both directions)
 - **Binary ↔ emoji**: the UTF-8 bytes in binary, as ⬜ (0) and ⬛ (1) (both directions)
 - **Hex ↔ emoji**: the UTF-8 bytes in hex, as ⓿➊➋…🅕 (both directions)
+- **Bytes (Base100) ↔ emoji**: one UTF-8 byte becomes one emoji. With 256 emoji in the table, **any text goes through**: Japanese, digits, punctuation. The mapping is Base100, so the output travels to dCode and back (both directions)
 - **Custom map**: build and save your own A–Z → 26 emoji mapping
 
 ### Everything else
 
+- **Breaking it without the key**: shows how often each emoji appears, lets you fit a crib (a word you expect) and set the assignment by hand. It also gives the unicity distance, so you can tell whether the text is long enough to settle
+- **Checking the substitution table**: looks for emoji that break on decoding (not one character, ZWJ, duplicates) and for ones that are easy to misread (need a selector, carry a skin tone, sit on consecutive code points). **Pairs that are hard to tell apart in black and white** are measured from how this browser draws them
+- **Finding invisible characters**: checks whether variation selectors or zero-width characters have been slipped in, reads out the hidden byte string, and can remove them
 - **The mapping table**: the letter-to-emoji mapping as a grid, with the typed letters highlighted
 - **Practice**: random questions as a quiz, with statistics
 - **Share by URL**: build a URL that carries the current settings
@@ -176,12 +186,15 @@ The share button builds a URL carrying these parameters.
 
 | Parameter | What it is | Example |
 |------------|------|-------|
-| `mode` | Mode | `caesar`, `vigenere`, `morse`, `binary`, `hex`, `custom` |
-| `set` | Emoji set id | `foods`, `shapes`, `weather`, `animals` |
+| `mode` | Mode | `caesar`, `vigenere`, `morse`, `binary`, `hex`, `bytes`, `custom` |
+| `set` | Emoji set id | `foods`, `shapes`, `weather`, `animals`, `distinct` |
 | `shift` | Caesar shift | `0`–`25` |
 | `key` | Vigenère key | `LEMON` or any run of letters |
 | `bchunk` | Binary chunking | `8`, `4`, `none` |
 | `hchunk` | Hex chunking | `2`, `none` |
+| `ychunk` | Byte-mode chunking | `none`, `4`, `8` |
+| `mvar` | Morse code table | `international`, `wabun` |
+| `cmap` | Custom map (26 emoji, A to Z) | `🍎🍐🍊…` (26, no duplicates) |
 | `keepS` | Keep spaces | `1` (on) / `0` (off) |
 | `keepP` | Keep punctuation | `1` (on) / `0` (off) |
 | `up` | Upper-case | `1` (on) / `0` (off) |
@@ -227,8 +240,10 @@ https://ipusiron.github.io/crypto-emoji-translator/?mode=caesar&set=foods&shift=
 
 ## ⚠️ Limits and things to know
 
-- **Only A–Z is enciphered.** Japanese, digits and punctuation pass through unchanged (in the Caesar and Vigenère modes). Binary and hex work on the UTF-8 bytes, so they handle any text.
+- **The Caesar and Vigenère modes encipher A–Z only.** Japanese, digits and punctuation pass through unchanged. Binary, hex and bytes (Base100) work on the UTF-8 bytes, so they handle any text.
 - Very long input makes the browser work hard (roughly 5,000 characters).
+- **The invisible-character check cannot settle U+FE0E and U+FE0F.** Those two are byte values in the hiding scheme and also the legitimate way to ask for an emoji presentation. Checking `☀️` reports one find (the screen says so too).
+- **"Looks like English" in the crack tab only counts how many common letter pairs appear.** It rises as the assignment gets closer to right, but a high number is not proof of a correct solution.
 - **The same emoji looks different on different devices and fonts.** The standard allows this (UTS #51: "The shape of the character can vary significantly"). What carries the information is the sequence of code points, not the picture, so decoding is unaffected.
 - **ZWJ sequences (👨‍👩‍👧 and the like) are not used in the tables.** `👨‍👩‍👧` (one character to a reader) and `👨👩👧` (three) would produce the same symbol string, so **the reverse direction would not be unique**.
 - **Morse covers both the international table (ITU-R M.1677-1, 50 entries) and Wabun (別表第一号 of the Japanese radio regulations, 65 entries).** **44 codes mean different things in the two**, so the original text is not recoverable unless you say which table to read with. The multiplication sign is not in the table because ITU says to send X for it, and the procedural signals (Understood, Error and the rest) are left out because they have no character and some collide with letters. Characters outside the table are dropped, but **the screen says so**.
@@ -259,7 +274,7 @@ Share a rule within a group, or use it as teaching material and learn how substi
 
 - Follow the Caesar and Vigenère ciphers in an unfamiliar alphabet. Put the result next to the mapping table and see that **the frequency distribution does not change**
 - Compare encoding (Morse, binary, hex) with enciphering on the same screen. The former has no key, so the rule is the whole secret
-- When a CTF or a puzzle hands you emoji ciphertext, use this to build the substitution table by hand
+- When a CTF or a puzzle hands you emoji ciphertext, **work it out on the crack tab from frequencies and a crib**. Other substitution solvers will not take emoji
 
 ### Teaching and self-study
 
@@ -271,7 +286,8 @@ Share a rule within a group, or use it as teaching material and learn how substi
 
 - In training on how information gets hidden, show something that reads as emoji but is not
 - Check the output of your own substitution or encoding routine against this tool
-- **Use it as material on the sharp edges of Unicode.** Emoji carrying a variation selector (U+FE0F) or a ZWJ break when split by code point — this tool itself had that bug
+- **Use it as material on the sharp edges of Unicode.** Emoji carrying a variation selector (U+FE0F) or a ZWJ break when split by code point — this tool itself had that bug, and checking the weather set on the settings tab still lists the 14 letters that were broken
+- **Use it in training on invisible characters.** Check whether a pasted message carries variation selectors or zero-width characters, and read out what was hidden. Tools that plant them are around; one that finds them was not
 
 ### Hobby and fiction
 
@@ -348,15 +364,17 @@ crypto-emoji-translator/
 ├── assets/                 # images
 │   ├── screenshot.png      # screenshot (transform tab)
 │   ├── screenshot2.png     # screenshot (visualizer tab)
-│   ├── screenshot3.png     # screenshot (practice tab)
-│   ├── screenshot4.png     # screenshot (study tab)
-│   ├── screenshot5.png     # screenshot (settings tab, custom map)
+│   ├── screenshot3.png     # screenshot (crack tab)
+│   ├── screenshot4.png     # screenshot (finding invisible characters)
+│   ├── screenshot5.png     # screenshot (checking the table)
+│   ├── screenshot6.png     # screenshot (practice tab)
 │   └── en/                 # screenshots of the English screen
 │       ├── screenshot.png  # screenshot (transform tab)
 │       ├── screenshot2.png # screenshot (visualizer tab)
-│       ├── screenshot3.png # screenshot (practice tab)
-│       ├── screenshot4.png # screenshot (study tab)
-│       └── screenshot5.png # screenshot (settings tab, custom map)
+│       ├── screenshot3.png # screenshot (crack tab)
+│       ├── screenshot4.png # screenshot (finding invisible characters)
+│       ├── screenshot5.png # screenshot (checking the table)
+│       └── screenshot6.png # screenshot (practice tab)
 ├── package.json            # how the tests run (no dependencies)
 ├── _headers                # security headers for a host that reads them (GitHub Pages does not)
 ├── AGENTS.md               # notes for Codex

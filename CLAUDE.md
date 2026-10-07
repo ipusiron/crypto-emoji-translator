@@ -146,6 +146,27 @@ Edit `js/emoji-sets.js`:
 - Accessibility: Use `aria-label`, `aria-live`, `role` attributes
 - Dark mode toggles document background color only
 
+## The calculation layer (js/modes/)
+
+Every module here is published on `globalThis`, touches no DOM, and is called directly by the tests.
+
+| Module | What it holds |
+|---|---|
+| `caesar.js` / `vigenere.js` | the two classical ciphers over an A–Z → emoji table |
+| `morse.js` | **two** code tables: international (ITU-R M.1677-1, 50 entries) and Wabun (別表第一号, 65). **44 codes mean different things in the two**, so every call takes a variant |
+| `binaryhex.js` | binary and hex of the UTF-8 bytes |
+| `bytes.js` | Base100: one byte, one emoji. Any text goes through |
+| `cryptanalysis.js` | frequencies, cribs, likelihood, unicity distance |
+| `diagnose.js` | checks a substitution table for things that break or mislead |
+| `hidden.js` | finds and reads invisible characters |
+
+Two things that keep biting, so they are worth stating:
+
+- **Morse is ambiguous across tables.** `-` is T in international and ム in Wabun. Never decode
+  without saying which table, and never present a decoded string as *the* answer
+- **U+FE0F is both byte 15 in the hiding scheme and the legitimate emoji presentation selector.**
+  `hidden.js` reports that ambiguity rather than calling ☀️ suspicious
+
 ## Emoji and graphemes (js/graphemes.js)
 
 `Array.from(s)` and `[...s]` split by **code point**, which breaks any emoji carrying a

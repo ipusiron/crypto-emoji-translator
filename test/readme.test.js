@@ -164,7 +164,7 @@ test('両方のREADMEが互いにリンクしている', () => {
 test('英語版の画像がすべて実在し、英語の画面である', () => {
   const imgs = [...readmeEn.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]);
   const local = imgs.filter((u) => !u.startsWith('http'));
-  assert.equal(local.length, 5, `画像の参照が ${local.length} 件`);
+  assert.equal(local.length, 6, `画像の参照が ${local.length} 件`);
   for (const rel of local) {
     assert.ok(rel.startsWith('assets/en/'), `英語版は英語の画面を使う: ${rel}`);
     assert.ok(fs.existsSync(new URL(rel, ROOT)), `${rel} がない`);
@@ -173,7 +173,7 @@ test('英語版の画像がすべて実在し、英語の画面である', () =>
 
 test('日本語版の画像もすべて実在する', () => {
   const imgs = [...readme.matchAll(/!\[[^\]]*\]\((assets\/[^)]+)\)/g)].map((m) => m[1]);
-  assert.equal(imgs.length, 5, `画像の参照が ${imgs.length} 件`);
+  assert.equal(imgs.length, 6, `画像の参照が ${imgs.length} 件`);
   for (const rel of imgs) {
     assert.ok(!rel.startsWith('assets/en/'), `日本語版は日本語の画面を使う: ${rel}`);
     assert.ok(fs.existsSync(new URL(rel, ROOT)), `${rel} がない`);
