@@ -8,7 +8,7 @@ import { modules, mappingOf, LETTERS } from './load.js';
 const ROOT = new URL('..', import.meta.url);
 const read = (f) => fs.readFileSync(new URL(f, ROOT), 'utf8');
 const readme = read('README.md');
-const { EmojiSets, Morse, BinaryHex, Caesar } = modules();
+const { EmojiSets, Morse, BinaryHex, Caesar, Graphemes } = modules();
 
 test('YAML メタデータの構造と値を保つ', () => {
   const block = readme.match(/^<!--\n---\n([\s\S]*?)\n---\n-->/);
@@ -186,4 +186,20 @@ test('英語版の絵文字セットの表も実装と合っている', () => {
     assert.ok(row, `${set.name} の行がない`);
     assert.ok(row.includes(set.items.slice(0, 12).join('')), `${set.name} の先頭12個が合っていない`);
   }
+});
+
+test('ユースケースの「このツールならではの使い方」の値は計算部と同じ（日英）', () => {
+  const readmeEn2 = read('README.en.md');
+  const map = mappingOf('foods');
+  const hello = Caesar.encodeToEmoji('HELLO', 0, map);
+  assert.equal(hello, '🍓🍌🍍🍍🍅');
+  assert.equal(map['L'], '🍍');
+  for (const md of [readme, readmeEn2]) assert.ok(md.includes('🍓🍌🍍🍍🍅'));
+  const weather = EmojiSets.find((s) => s.id === 'weather');
+  const broken = weather.items.filter((e) => Graphemes.split(e).length === 1 && [...e].length > 1).length;
+  assert.equal(broken, 14);
+  for (const md of [readme, readmeEn2]) assert.ok(md.includes('14'));
+  const sos = Morse.encodeToEmoji('SOS');
+  assert.equal(sos, '⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫');
+  for (const md of [readme, readmeEn2]) assert.ok(md.includes('⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫'));
 });

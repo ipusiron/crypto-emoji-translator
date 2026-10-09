@@ -270,6 +270,12 @@ Share a rule within a group, or use it as teaching material and learn how substi
 
 ## 🎯 Use cases
 
+### Ways of using this tool in particular
+
+- Confirming that frequencies are kept even as the look changes (frequency-analysis classes): encrypting HELLO with the foods set gives 🍓🍌🍍🍍🍅. The two L's in a row become the same emoji twice, 🍍🍍, so the same letter always maps to the same emoji. Behind the flashy emoji look it is still a simple substitution, and the repeated symbol reveals the repeated letter. It shows that frequency analysis works just the same on emoji
+- Confirming that how you count "one character" changes the result (Unicode classes): in the weather set, 14 of the emoji are one grapheme but two code points (a variation selector U+FE0F is attached). Split by code point and these 14 break apart into other symbols; split by grapheme and they stay as one character. It shows on real emoji that the same character breaks or holds up from nothing but a difference in the rule of what counts as one character
+- Confirming that encoding has no key and reverses by the rule alone (the difference between encoding and encryption): turning SOS into emoji with Morse gives ⚫⚫⚫⏹⚪⚪⚪⏹⚫⚫⚫ (a dot is ⚫, a dash is ⚪, a separator is ⏹). There is no key, and anyone who knows the rule, the Morse table, can reverse it. You can compare it on the same screen with encryption that needs a key (Caesar and Vigenère)
+
 ### Learning about security
 
 - Follow the Caesar and Vigenère ciphers in an unfamiliar alphabet. Put the result next to the mapping table and see that **the frequency distribution does not change**
